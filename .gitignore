@@ -72,3 +72,18 @@ Plugins/*/Intermediate/*
 
 # Cache files for the editor to use
 DerivedDataCache/*
+
+# Zip files
+*.zip
+
+# Logs
+*.log
+
+# Dumps
+*.dmp
+
+# Pdb
+*.pdb
+
+# Packages
+Content/*
