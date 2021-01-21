@@ -2,4 +2,13 @@
 
 
 #include "xplodeGameModeBase.h"
+#include "xplode/Public/xPlayerController.h"
+#include "xBaseCharacter.h"
 
+
+
+AxplodeGameModeBase::AxplodeGameModeBase()
+{
+	DefaultPawnClass = AxBaseCharacter::StaticClass();
+	PlayerControllerClass = AxPlayerController::StaticClass();
+}

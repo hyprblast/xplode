@@ -7,11 +7,13 @@
 #include "xplodeGameModeBase.generated.h"
 
 /**
- * 
+ *
  */
 UCLASS()
 class XPLODE_API AxplodeGameModeBase : public AGameModeBase
 {
 	GENERATED_BODY()
-	
+public:
+	AxplodeGameModeBase();
+
 };
