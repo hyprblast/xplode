@@ -3,3 +3,7 @@
 
 #include "xPlayerController.h"
 
+int32 AxPlayerController::ShowSelectedTeam_Implementation()
+{
+	return 1;
+}

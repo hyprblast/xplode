@@ -9,6 +9,7 @@
 
 AxplodeGameModeBase::AxplodeGameModeBase()
 {
-	DefaultPawnClass = AxBaseCharacter::StaticClass();
+	DefaultPawnClass = nullptr;/*AxBaseCharacter::StaticClass();*/
 	PlayerControllerClass = AxPlayerController::StaticClass();
 }
+
