@@ -19,5 +19,5 @@ class XPLODE_API IxPlayerControllerInterface
 public:
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 ShowSelectedTeam();
+		int32 ShowSelectTeam();
 };

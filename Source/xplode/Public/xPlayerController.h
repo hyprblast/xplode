@@ -1,10 +1,14 @@
 // Fill out your copyright notice in the Description page of Project Settings.
+// NOTE: PlayerControllers exists on server and client
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
 #include "xPlayerControllerInterface.h"
+#include "Blueprint/UserWidget.h"
+#include "W_SelectTeamMaster.h"
+#include "Net/UnrealNetwork.h"
 #include "xPlayerController.generated.h"
 
 /**
@@ -17,7 +21,27 @@ class XPLODE_API AxPlayerController : public APlayerController, public IxPlayerC
 
 
 public:
+
+	AxPlayerController();
+
+	// Dynamic reference to the blueprint class
+	/*UPROPERTY(Replicated)*/
+	TSubclassOf<class UUserWidget> SelectTeamWidgetUIClass;
+	
+	UPROPERTY(BlueprintReadOnly, Category = "UI")
+	UW_SelectTeamMaster* SelectTeamWidget;
+
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 ShowSelectedTeam();  // This is the prototype declared in the interface
-	virtual int32 ShowSelectedTeam_Implementation() override; // This is the declaration of the implementation
+		int32 ShowSelectTeam();  // This is the prototype declared in the interface
+	virtual int32 ShowSelectTeam_Implementation() override; // This is the declaration of the implementation
+
+	// Called from client, executed on server, withvalidation is required for this
+	/*UFUNCTION(Server, Reliable, WithValidation)*/
+	
+	// Called from server, executed on client
+	UFUNCTION(Client, Reliable)
+	void ClientShowTeamSelection();
+
+protected:
+	FTimerHandle ShowTeamSelectionWidgetTimerHandle;
 };
