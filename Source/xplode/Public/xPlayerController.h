@@ -9,6 +9,8 @@
 #include "Blueprint/UserWidget.h"
 #include "W_SelectTeamMaster.h"
 #include "Net/UnrealNetwork.h"
+#include "GameFramework/Actor.h"
+#include "Blueprint/WidgetBlueprintLibrary.h"
 #include "xPlayerController.generated.h"
 
 /**

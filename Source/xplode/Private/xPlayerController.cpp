@@ -2,7 +2,7 @@
 
 
 #include "xPlayerController.h"
-#include <GameFramework/Actor.h>
+
 
 
 AxPlayerController::AxPlayerController()
@@ -53,6 +53,9 @@ void AxPlayerController::ClientShowTeamSelection_Implementation()
 	{
 		SelectTeamWidget = CreateWidget<UW_SelectTeamMaster>(GetWorld(), SelectTeamWidgetUIClass);
 		SelectTeamWidget->AddToViewport();
+		SetInputMode(FInputModeGameAndUI());
+		SetShowMouseCursor(true);
+		/*UWidgetBlueprintLibrary::SetInputMode_GameAndUI(this, SelectTeamWidget);*/
 	}
 
 	/*GetWorldTimerManager().ClearTimer(ShowTeamSelectionWidgetTimerHandle);*/
