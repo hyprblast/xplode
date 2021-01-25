@@ -5,11 +5,10 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
+#include "xPlayerStartBase.h"
 #include "xplodeGameModeBase.generated.h"
 
-/**
- *
- */
+
 UCLASS()
 class XPLODE_API AxplodeGameModeBase : public AGameModeBase
 {
@@ -19,5 +18,11 @@ public:
 
 protected:
 	virtual void PostLogin(APlayerController* NewPlayer) override;
+	// Called when the game starts or when spawned
+	virtual void BeginPlay() override;
+
+private:
+	TArray<AxPlayerStartBase*> BlueSpanwPoint;
+	TArray<AxPlayerStartBase*> RedSpawnPoints;
 
 };

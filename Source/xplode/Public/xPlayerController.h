@@ -14,7 +14,7 @@
 #include "xPlayerController.generated.h"
 
 /**
- * 
+ *
  */
 UCLASS(BlueprintType)
 class XPLODE_API AxPlayerController : public APlayerController, public IxPlayerControllerInterface
@@ -29,20 +29,25 @@ public:
 	// Dynamic reference to the blueprint class
 	/*UPROPERTY(Replicated)*/
 	TSubclassOf<class UUserWidget> SelectTeamWidgetUIClass;
-	
+
 	UPROPERTY(BlueprintReadOnly, Category = "UI")
-	UW_SelectTeamMaster* SelectTeamWidget;
+		UW_SelectTeamMaster* SelectTeamWidget;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 ShowSelectTeam();  // This is the prototype declared in the interface
 	virtual int32 ShowSelectTeam_Implementation() override; // This is the declaration of the implementation
 
-	// Called from client, executed on server, withvalidation is required for this
-	/*UFUNCTION(Server, Reliable, WithValidation)*/
-	
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 SelectPlayerType(FName TypeName);
+	virtual int32 SelectPlayerType_Implementation(FName TypeName) override;
+
+	 //Called from client, executed on server, withvalidation is required for this
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerSelectPlayerType(FName TypeName);
+
 	// Called from server, executed on client
 	UFUNCTION(Client, Reliable)
-	void ClientShowTeamSelection();
+		void ClientShowTeamSelection();
 
 protected:
 	FTimerHandle ShowTeamSelectionWidgetTimerHandle;

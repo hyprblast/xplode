@@ -26,6 +26,35 @@ int32 AxPlayerController::ShowSelectTeam_Implementation()
 	return 1;
 }
 
+int32 AxPlayerController::SelectPlayerType_Implementation(FName TypeName)
+{
+	SelectTeamWidget->RemoveFromParent();
+	
+	ServerSelectPlayerType(TypeName);
+
+	return 1;
+}
+
+void AxPlayerController::ServerSelectPlayerType_Implementation(FName TypeName)
+{
+	
+	/*UE_LOG(LogTemp, Log, TEXT("Player type selected: %s"), *TypeName.ToString());*/
+
+	if (TypeName == TEXT("Blue"))
+	{
+		
+	}
+	else
+	{
+		
+	}
+}
+
+bool AxPlayerController::ServerSelectPlayerType_Validate(FName TypeName)
+{
+	return true;
+}
+
 //bool AxPlayerController::ClientShowTeamSelection_Validate()
 //{
 //	UE_LOG(LogTemp, Log, TEXT("VAlidate called"));

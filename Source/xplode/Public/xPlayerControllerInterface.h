@@ -20,4 +20,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 ShowSelectTeam();
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 SelectPlayerType(FName TypeName);
 };

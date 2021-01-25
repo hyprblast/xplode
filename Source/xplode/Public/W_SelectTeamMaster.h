@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/Button.h"
+#include "xPlayerControllerInterface.h"
 #include "W_SelectTeamMaster.generated.h"
 
 class UButton;
@@ -19,5 +20,17 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, meta = (BindWidget))
 		UButton* BlueButton;
+	
+	UFUNCTION()
+		void OnRedClick();
+
+	UFUNCTION()
+		void OnBlueClick();
+
+	virtual void NativeConstruct() override;
+
+private:
+	void BindButtonEvents();
+	void SelectPlayerType(FName TypeName);
 	
 };
