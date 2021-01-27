@@ -24,6 +24,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	USkeletalMeshComponent* SkeletalMeshComp;
 
+	/*UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Default")
+	TSubclassOf<AxBaseCharacter> PlayerTypeToSpawn;*/
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

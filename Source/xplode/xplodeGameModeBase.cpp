@@ -14,33 +14,25 @@ AxplodeGameModeBase::AxplodeGameModeBase()
 {
 	DefaultPawnClass = nullptr;/*AxBaseCharacter::StaticClass();*/
 	PlayerControllerClass = AxPlayerController::StaticClass();
+
+	GetBluePrintPlayerClassRefs();
 }
 
 void AxplodeGameModeBase::RequestSpawnPlayerType(FName TypeName, APlayerController* PlayerController)
 {
+	int32 Length = TypeName == TEXT("Blue") ? BlueSpanwPoints.Num() : RedSpawnPoints.Num();
 
-	if (TypeName == TEXT("Blue"))
+	if (Length > 0 && PlayerUIClasses.Num() == 2)
 	{
-		int32 Length = BlueSpanwPoints.Num();
-		if (Length > 0)
-		{
-			int32 Rand = FMath::RandRange(0, Length - 1);
-			
-			FTransform Transform = BlueSpanwPoints[Rand]->GetTransform();
-			
-			if (PlayerController->GetClass()->ImplementsInterface(UxPlayerControllerInterface::StaticClass()))
-			{
-				//UE_LOG(LogTemp, Log, TEXT("Post Login"));
-				/*IxPlayerControllerInterface::Execute_SpawnPlayer(TSubclassOf<;*/
-			}
-			
+		int32 Rand = FMath::RandRange(0, Length - 1);
+		int32 PlayerUIClassIndex = TypeName == TEXT("Blue") ? 0 : 1;
 
-		}
-	}
-	else
-	{
-		if (RedSpawnPoints.Num() > 0)
+		FTransform Transform = TypeName == TEXT("Blue") ? BlueSpanwPoints[Rand]->GetTransform() : RedSpawnPoints[Rand]->GetTransform();
+
+		if (PlayerController->GetClass()->ImplementsInterface(UxPlayerControllerInterface::StaticClass()))
 		{
+			//UE_LOG(LogTemp, Log, TEXT("Post Login"));
+			IxPlayerControllerInterface::Execute_SpawnPlayer(PlayerController, PlayerUIClasses[PlayerUIClassIndex], Transform);
 		}
 	}
 }
@@ -97,4 +89,15 @@ void AxplodeGameModeBase::BeginPlay()
 	}
 }
 
+void AxplodeGameModeBase::GetBluePrintPlayerClassRefs()
+{
+	static ConstructorHelpers::FClassFinder<AxBaseCharacter> BluePlayerUIBPClass(TEXT("/Game/_Main/Characters/Blueprints/BP_xBluePlayer.BP_xBluePlayer_C"));
+	static ConstructorHelpers::FClassFinder<AxBaseCharacter> RedPlayerUIBPClass(TEXT("/Game/_Main/Characters/Blueprints/BP_xRedPlayer.BP_xRedPlayer_C"));
+
+	if (BluePlayerUIBPClass.Class != nullptr && BluePlayerUIBPClass.Succeeded() && RedPlayerUIBPClass.Class != nullptr && RedPlayerUIBPClass.Succeeded())
+	{
+		PlayerUIClasses.Add(BluePlayerUIBPClass.Class);
+		PlayerUIClasses.Add(RedPlayerUIBPClass.Class);
+	}
+}
 

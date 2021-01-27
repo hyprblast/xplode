@@ -13,6 +13,7 @@
 #include "Blueprint/WidgetBlueprintLibrary.h"
 #include "../xplodeGameModeBase.h"
 #include "xBaseCharacter.h"
+#include <GameFramework/Character.h>
 #include "xPlayerController.generated.h"
 
 /**
@@ -30,7 +31,7 @@ public:
 
 	// Dynamic reference to the blueprint class
 	/*UPROPERTY(Replicated)*/
-	TSubclassOf<class UUserWidget> SelectTeamWidgetUIClass;
+	TSubclassOf<UUserWidget> SelectTeamWidgetUIClass;
 
 	UPROPERTY(BlueprintReadOnly, Category = "UI")
 		UW_SelectTeamMaster* SelectTeamWidget;
