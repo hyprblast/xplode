@@ -11,6 +11,8 @@
 #include "Net/UnrealNetwork.h"
 #include "GameFramework/Actor.h"
 #include "Blueprint/WidgetBlueprintLibrary.h"
+#include "../xplodeGameModeBase.h"
+#include "xBaseCharacter.h"
 #include "xPlayerController.generated.h"
 
 /**
@@ -37,6 +39,11 @@ public:
 		int32 ShowSelectTeam();  // This is the prototype declared in the interface
 	virtual int32 ShowSelectTeam_Implementation() override; // This is the declaration of the implementation
 
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+	int32 SpawnPlayer(TSubclassOf<AxBaseCharacter> PlayerToSpawn, FTransform PlayerToSpawnTransform);
+	virtual int32 SpawnPlayer_Implementation(TSubclassOf<AxBaseCharacter> PlayerToSpawn, FTransform PlayerToSpawnTransform) override;
+
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SelectPlayerType(FName TypeName);
 	virtual int32 SelectPlayerType_Implementation(FName TypeName) override;
@@ -51,4 +58,8 @@ public:
 
 protected:
 	FTimerHandle ShowTeamSelectionWidgetTimerHandle;
+	void BeginPlay() override;
+
+private: 
+	AxplodeGameModeBase* GameMode;
 };

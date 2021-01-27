@@ -15,6 +15,7 @@ class XPLODE_API AxplodeGameModeBase : public AGameModeBase
 	GENERATED_BODY()
 public:
 	AxplodeGameModeBase();
+	void RequestSpawnPlayerType(FName TypeName, APlayerController* PlayerController);
 
 protected:
 	virtual void PostLogin(APlayerController* NewPlayer) override;
@@ -22,7 +23,7 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
-	TArray<AxPlayerStartBase*> BlueSpanwPoint;
+	TArray<AxPlayerStartBase*> BlueSpanwPoints;
 	TArray<AxPlayerStartBase*> RedSpawnPoints;
 
 };

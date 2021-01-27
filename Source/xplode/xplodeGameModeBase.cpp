@@ -16,6 +16,36 @@ AxplodeGameModeBase::AxplodeGameModeBase()
 	PlayerControllerClass = AxPlayerController::StaticClass();
 }
 
+void AxplodeGameModeBase::RequestSpawnPlayerType(FName TypeName, APlayerController* PlayerController)
+{
+
+	if (TypeName == TEXT("Blue"))
+	{
+		int32 Length = BlueSpanwPoints.Num();
+		if (Length > 0)
+		{
+			int32 Rand = FMath::RandRange(0, Length - 1);
+			
+			FTransform Transform = BlueSpanwPoints[Rand]->GetTransform();
+			
+			if (PlayerController->GetClass()->ImplementsInterface(UxPlayerControllerInterface::StaticClass()))
+			{
+				//UE_LOG(LogTemp, Log, TEXT("Post Login"));
+				/*IxPlayerControllerInterface::Execute_SpawnPlayer(TSubclassOf<;*/
+			}
+			
+
+		}
+	}
+	else
+	{
+		if (RedSpawnPoints.Num() > 0)
+		{
+		}
+	}
+}
+
+
 void AxplodeGameModeBase::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
@@ -44,7 +74,7 @@ void AxplodeGameModeBase::BeginPlay()
 
 			if (counter <= 6)
 			{
-				BlueSpanwPoint.Add(PlayerStart);
+				BlueSpanwPoints.Add(PlayerStart);
 			}
 			else 
 			{

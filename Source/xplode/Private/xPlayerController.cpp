@@ -5,6 +5,7 @@
 
 
 
+
 AxPlayerController::AxPlayerController()
 {
 	static ConstructorHelpers::FClassFinder<UW_SelectTeamMaster> TeamSelectionnUIBPClass(TEXT("/Game/_Main/UI/W_SelectTeam.W_SelectTeam_C"));
@@ -26,6 +27,17 @@ int32 AxPlayerController::ShowSelectTeam_Implementation()
 	return 1;
 }
 
+int32 AxPlayerController::SpawnPlayer_Implementation(TSubclassOf<AxBaseCharacter> PlayerToSpawnType, FTransform PlayerToSpawnTransform)
+{
+	FActorSpawnParameters spawnParams;
+	/*spawnParams.Owner = this;
+	spawnParams.Instigator = this;*/
+	spawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+	AxBaseCharacter* SpawnedPlayer = GetWorld()->SpawnActor<AxBaseCharacter>(PlayerToSpawnType, PlayerToSpawnTransform, spawnParams);
+	return 1;
+}
+
 int32 AxPlayerController::SelectPlayerType_Implementation(FName TypeName)
 {
 	SelectTeamWidget->RemoveFromParent();
@@ -40,13 +52,9 @@ void AxPlayerController::ServerSelectPlayerType_Implementation(FName TypeName)
 	
 	/*UE_LOG(LogTemp, Log, TEXT("Player type selected: %s"), *TypeName.ToString());*/
 
-	if (TypeName == TEXT("Blue"))
+	if (GameMode != nullptr && GameMode)
 	{
-		
-	}
-	else
-	{
-		
+		GameMode->RequestSpawnPlayerType(TypeName, this);
 	}
 }
 
@@ -89,6 +97,12 @@ void AxPlayerController::ClientShowTeamSelection_Implementation()
 
 	/*GetWorldTimerManager().ClearTimer(ShowTeamSelectionWidgetTimerHandle);*/
 	
+}
+
+void AxPlayerController::BeginPlay()
+{
+	// Get reference to the game mode
+	GameMode = Cast<AxplodeGameModeBase>(GetWorld()->GetAuthGameMode());
 }
 
 //void AxPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
