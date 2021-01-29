@@ -35,6 +35,12 @@ int32 AxPlayerController::SpawnPlayer_Implementation(TSubclassOf<AxBaseCharacter
 	spawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
 	AxBaseCharacter* SpawnedPlayer = GetWorld()->SpawnActor<AxBaseCharacter>(PlayerToSpawnType, PlayerToSpawnTransform, spawnParams);
+	
+	Possess(SpawnedPlayer);
+
+	// hide mouse on client
+	ClientHideMouse();
+	
 	return 1;
 }
 
@@ -51,6 +57,9 @@ void AxPlayerController::ServerSelectPlayerType_Implementation(FName TypeName)
 {
 	
 	/*UE_LOG(LogTemp, Log, TEXT("Player type selected: %s"), *TypeName.ToString());*/
+
+	/*The reason why we send this back to the gamemode and back to the controller is that we
+	  want to make sure the player only gets spawned of the server to prevent cheating*/
 
 	if (GameMode != nullptr && GameMode)
 	{
@@ -97,6 +106,12 @@ void AxPlayerController::ClientShowTeamSelection_Implementation()
 
 	/*GetWorldTimerManager().ClearTimer(ShowTeamSelectionWidgetTimerHandle);*/
 	
+}
+
+void AxPlayerController::ClientHideMouse_Implementation()
+{
+	SetInputMode(FInputModeGameOnly());
+	SetShowMouseCursor(false);
 }
 
 void AxPlayerController::BeginPlay()

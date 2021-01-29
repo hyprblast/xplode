@@ -57,6 +57,10 @@ public:
 	UFUNCTION(Client, Reliable)
 		void ClientShowTeamSelection();
 
+	// Called from server, executed on client
+	UFUNCTION(Client, Reliable)
+		void ClientHideMouse();
+
 protected:
 	FTimerHandle ShowTeamSelectionWidgetTimerHandle;
 	void BeginPlay() override;
