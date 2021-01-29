@@ -20,13 +20,25 @@ AxBaseCharacter::AxBaseCharacter()
 	SkeletalMeshComp = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FPArms"));
 	SkeletalMeshComp->SetupAttachment(CameraComp);
 
+	Tags.Add(FName("Player"));
+
+}
+
+bool AxBaseCharacter::GetPlayerHasBall_Implementation()
+{
+	return bHasBall;
+}
+
+int32 AxBaseCharacter::SetPlayerHasBall_Implementation(bool bPlayerHasBall)
+{
+	bHasBall = bPlayerHasBall;
+	return 1;
 }
 
 // Called when the game starts or when spawned
 void AxBaseCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	
 }
 
 // Called every frame

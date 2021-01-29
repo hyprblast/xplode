@@ -5,12 +5,13 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Camera/CameraComponent.h"
+#include "xBaseCharacterInterface.h"
 #include "xBaseCharacter.generated.h"
 
 class UCameraComponent;
 
 UCLASS()
-class XPLODE_API AxBaseCharacter : public ACharacter
+class XPLODE_API AxBaseCharacter : public ACharacter, public IxBaseCharacterInterface
 {
 	GENERATED_BODY()
 
@@ -19,13 +20,21 @@ public:
 	AxBaseCharacter();
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	UCameraComponent* CameraComp;
+		UCameraComponent* CameraComp;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	USkeletalMeshComponent* SkeletalMeshComp;
+		USkeletalMeshComponent* SkeletalMeshComp;
 
-	/*UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Default")
-	TSubclassOf<AxBaseCharacter> PlayerTypeToSpawn;*/
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+		bool bHasBall;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerHasBall();  // This is the prototype declared in the interface
+	virtual bool GetPlayerHasBall_Implementation() override; // This is the declaration of the implementation
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 SetPlayerHasBall(bool bPlayerHasBall);  // This is the prototype declared in the interface
+	virtual int32 SetPlayerHasBall_Implementation(bool bPlayerHasBall) override; // This is the declaration of the implementation
 
 protected:
 	// Called when the game starts or when spawned
@@ -33,7 +42,7 @@ protected:
 	void MoveFoward(float Value);
 	void MoveRight(float Value);
 
-public:	
+public:
 	// Called every frame
 	//virtual void Tick(float DeltaTime) override;
 
