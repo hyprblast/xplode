@@ -22,10 +22,10 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 		UCameraComponent* CameraComp;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
 		USkeletalMeshComponent* SkeletalMeshComp;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
 		bool bHasBall;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
@@ -33,8 +33,15 @@ public:
 	virtual bool GetPlayerHasBall_Implementation() override; // This is the declaration of the implementation
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 SetPlayerHasBall(bool bPlayerHasBall);  // This is the prototype declared in the interface
-	virtual int32 SetPlayerHasBall_Implementation(bool bPlayerHasBall) override; // This is the declaration of the implementation
+		int32 SetPlayerHasBall(bool bPlayerHasBall);
+	virtual int32 SetPlayerHasBall_Implementation(bool bPlayerHasBall) override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 AttachBall(AxBallBase* Ball);
+	virtual int32 AttachBall_Implementation(AxBallBase* Ball) override;
+
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
 
 protected:
 	// Called when the game starts or when spawned
@@ -42,12 +49,12 @@ protected:
 	void MoveFoward(float Value);
 	void MoveRight(float Value);
 
-public:
-	// Called every frame
-	//virtual void Tick(float DeltaTime) override;
-
-	// Called to bind functionality to input
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
+private:
+	void AttachBallToTPVMesh(AxBallBase* Ball);
+	void SpawnNewBallOnFPVMesh();
+	
+	UPROPERTY()
+	AxBallBase* BallInHand;
+	
 
 };

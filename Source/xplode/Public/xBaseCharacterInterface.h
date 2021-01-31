@@ -22,4 +22,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 	int32 SetPlayerHasBall(bool bPlayerHasBall);
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 AttachBall(AxBallBase* Ball);
 };

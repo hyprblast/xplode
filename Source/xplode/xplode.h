@@ -4,3 +4,5 @@
 
 #include "CoreMinimal.h"
 
+#define XBALLOBJECT_CHANNEL			ECC_GameTraceChannel1
+
