@@ -42,6 +42,15 @@ public:
 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+	//virtual void Tick(float DeltaTime) override;
+
+	// Called from server, executed on client
+	UFUNCTION(Client, Reliable)
+		void ClientHideBallFromTPV(AxBallBase* Ball);
+
+	UFUNCTION(Client, Reliable)
+		void ClientSpawnNewBallOnFPVMesh();
+
 
 protected:
 	// Called when the game starts or when spawned
@@ -50,11 +59,12 @@ protected:
 	void MoveRight(float Value);
 
 private:
+	UFUNCTION()
 	void AttachBallToTPVMesh(AxBallBase* Ball);
-	void SpawnNewBallOnFPVMesh();
-	
+
+
 	UPROPERTY()
-	AxBallBase* BallInHand;
-	
+		AxBallBase* BallInHand;
+
 
 };

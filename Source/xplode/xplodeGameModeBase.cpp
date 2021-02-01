@@ -7,6 +7,7 @@
 #include "xPlayerControllerInterface.h"
 #include "EngineUtils.h"
 #include "xPlayerStartBase.h"
+#include "xBallBase.h"
 
 
 
@@ -41,6 +42,12 @@ void AxplodeGameModeBase::RequestSpawnPlayerType(FName TypeName, APlayerControll
 void AxplodeGameModeBase::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
+
+	// Temp
+	if (!Ball || Ball == nullptr)
+	{
+		SpawnBall();
+	}
 
 	if (NewPlayer->GetClass()->ImplementsInterface(UxPlayerControllerInterface::StaticClass()))
 	{
@@ -99,5 +106,15 @@ void AxplodeGameModeBase::GetBluePrintPlayerClassRefs()
 		PlayerUIClasses.Add(BluePlayerUIBPClass.Class);
 		PlayerUIClasses.Add(RedPlayerUIBPClass.Class);
 	}
+}
+
+void AxplodeGameModeBase::SpawnBall()
+{
+	// This logic is temporary and only for prototype
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = this;
+
+	Ball = GetWorld()->SpawnActor<AxBallBase>(AxBallBase::StaticClass(),FVector(200,177,227), FRotator(0,0,0), SpawnParams);
 }
 

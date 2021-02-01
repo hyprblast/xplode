@@ -16,10 +16,15 @@ class XPLODE_API AxplodeGameModeBase : public AGameModeBase
 	GENERATED_BODY()
 public:
 	AxplodeGameModeBase();
+	UFUNCTION()
 	void RequestSpawnPlayerType(FName TypeName, APlayerController* PlayerController);
 	
 	// Dynamic reference to the player blueprint character to spawn
+	UPROPERTY()
 	TArray<TSubclassOf<AxBaseCharacter>> PlayerUIClasses;
+
+	UPROPERTY()
+	AxBallBase* Ball;
 
 protected:
 	virtual void PostLogin(APlayerController* NewPlayer) override;
@@ -27,7 +32,12 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
+	UPROPERTY()
 	TArray<AxPlayerStartBase*> BlueSpanwPoints;
+	UPROPERTY()
 	TArray<AxPlayerStartBase*> RedSpawnPoints;
+	UFUNCTION()
 	void GetBluePrintPlayerClassRefs();
+	UFUNCTION()
+	void SpawnBall();
 };

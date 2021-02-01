@@ -49,10 +49,17 @@ int32 AxBaseCharacter::AttachBall_Implementation(AxBallBase* Ball)
 {
 	if (Ball && Ball != nullptr)
 	{
+		BallInHand = Ball;
 		// Have to attach the spawned ball to TPV mesh and spawn a new one for FPV mesh with only owner sees
 		// TODO: will need some sort of sync component between the 2
+		
 		AttachBallToTPVMesh(Ball);
-		SpawnNewBallOnFPVMesh();
+
+		// Hide the ball from TPV from the client
+		ClientHideBallFromTPV(Ball);
+
+		// Spawn FPV ball on client 
+		ClientSpawnNewBallOnFPVMesh();
 	}
 
 	return 1;
@@ -85,26 +92,44 @@ void AxBaseCharacter::MoveRight(float Value)
 
 void AxBaseCharacter::AttachBallToTPVMesh(AxBallBase* Ball)
 {
-	UE_LOG(LogTemp, Log, TEXT("AttachBallToTPVMesh")); 
 	FName SocketName = TEXT("hand_socket");
 	USkeletalMeshComponent* TPVSkeletalMesh = GetMesh();
 	
 	/*Ball->SphereComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);*/
 	/*Ball->SphereComp->SetGenerateOverlapEvents(false);*/
-	Ball->SetOwner(this);
+	/*Ball->SetOwner(this);*/
 	FAttachmentTransformRules TransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, true);
 	FTransform TPVSocketTransform = TPVSkeletalMesh->GetSocketTransform(SocketName, RTS_World);
 
-	Ball->SphereComp->SetOwnerNoSee(true);
+	/*Ball->SphereComp->SetOwnerNoSee(true);*/
 	Ball->AttachToComponent(TPVSkeletalMesh, TransformRules, SocketName);
 
 	/*Ball->SetActorTransform(TPVSocketTransform);*/
 }
 
 
-void AxBaseCharacter::SpawnNewBallOnFPVMesh()
+// Called to bind functionality to input
+void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
+	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
+	PlayerInputComponent->BindAxis("LookUp", this, &AxBaseCharacter::AddControllerPitchInput);
+	PlayerInputComponent->BindAxis("Turn", this, &AxBaseCharacter::AddControllerYawInput);
+
+	PlayerInputComponent->BindAxis("MoveFoward", this, &AxBaseCharacter::MoveFoward);
+	PlayerInputComponent->BindAxis("MoveRight", this, &AxBaseCharacter::MoveRight);
+
+	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AxBaseCharacter::Jump);
+}
+
+
+void AxBaseCharacter::ClientHideBallFromTPV_Implementation(AxBallBase* Ball)
+{
+	Ball->SetActorHiddenInGame(true);
+}
+
+void AxBaseCharacter::ClientSpawnNewBallOnFPVMesh_Implementation()
+{
 	FName SocketName = TEXT("hand_socket");
 
 	FActorSpawnParameters spawnParams;
@@ -120,21 +145,6 @@ void AxBaseCharacter::SpawnNewBallOnFPVMesh()
 	BallInHand->SphereComp->SetOnlyOwnerSee(true);
 	BallInHand->SetReplicates(false);
 	BallInHand->AttachToComponent(SkeletalMeshComp, TransformRules, SocketName);
-	
-}
-
-// Called to bind functionality to input
-void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
-	PlayerInputComponent->BindAxis("LookUp", this, &AxBaseCharacter::AddControllerPitchInput);
-	PlayerInputComponent->BindAxis("Turn", this, &AxBaseCharacter::AddControllerYawInput);
-
-	PlayerInputComponent->BindAxis("MoveFoward", this, &AxBaseCharacter::MoveFoward);
-	PlayerInputComponent->BindAxis("MoveRight", this, &AxBaseCharacter::MoveRight);
-
-	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AxBaseCharacter::Jump);
 }
 
 void AxBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

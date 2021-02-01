@@ -16,6 +16,7 @@ AxBallBase::AxBallBase()
 	{
 		SphereComp->SetCollisionObjectType(XBALLOBJECT_CHANNEL);
 		SphereComp->SetCollisionProfileName(TEXT("xBallCollision"));
+		SphereComp->SetGenerateOverlapEvents(true);
 		SphereComp->SetStaticMesh(SphereStaticMeshObject);
 		SphereComp->SetupAttachment(RootComponent);
 	/*	SphereComp->OnComponentBeginOverlap.AddDynamic(this, &AxBallBase::CallOnOverlap);*/
@@ -26,6 +27,7 @@ AxBallBase::AxBallBase()
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
+	SetReplicateMovement(true);
 }
 
 //void AxBallBase::CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, class AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -41,13 +43,14 @@ AxBallBase::AxBallBase()
 void AxBallBase::NotifyActorBeginOverlap(AActor* OtherActor)
 {
 	Super::NotifyActorBeginOverlap(OtherActor);
-	/*UE_LOG(LogTemp, Log, TEXT("Other Actor is: %s"), *OtherActor->GetFullName());*/
-	// Attach client version of ball to player. Bc it replicates all other player will see the ball
-	if (!HasAuthority() && 
+	
+	// Attach ball on server version of the player so that it can be replicated
+	if (HasAuthority() && 
 		OtherActor->ActorHasTag(FName("Player")) && 
 		OtherActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()) &&
 	    !IxBaseCharacterInterface::Execute_GetPlayerHasBall(OtherActor))
 	{
+		UE_LOG(LogTemp, Log, TEXT("TRUE"));
 			IxBaseCharacterInterface::Execute_SetPlayerHasBall(OtherActor, true);
 			IxBaseCharacterInterface::Execute_AttachBall(OtherActor, this);
 	}
