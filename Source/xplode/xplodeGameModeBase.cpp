@@ -8,6 +8,10 @@
 #include "EngineUtils.h"
 #include "xPlayerStartBase.h"
 #include "xBallBase.h"
+#include "GameFramework/PlayerController.h"
+#include "GameFramework/Pawn.h"
+#include "xBaseCharacterInterface.h"
+#include "xplodeGameStateBase.h"
 
 
 
@@ -15,6 +19,7 @@ AxplodeGameModeBase::AxplodeGameModeBase()
 {
 	DefaultPawnClass = nullptr;/*AxBaseCharacter::StaticClass();*/
 	PlayerControllerClass = AxPlayerController::StaticClass();
+	GameStateClass = AxplodeGameStateBase::StaticClass();
 
 	GetBluePrintPlayerClassRefs();
 }
@@ -39,15 +44,30 @@ void AxplodeGameModeBase::RequestSpawnPlayerType(FName TypeName, APlayerControll
 }
 
 
+//void AxplodeGameModeBase::ResetPlayerWhoHasBall()
+//{
+//	for (int32 i = 0; i < PlayerControllerList.Num(); i++)
+//	{
+//		APlayerController* PlayerController = PlayerControllerList[i];
+//		APawn* Pawn = PlayerController->GetPawn();
+//
+//		if (Pawn && 
+//			Pawn != nullptr && 
+//			Pawn->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()) &&
+//			IxBaseCharacterInterface::Execute_GetPlayerHasBall(Pawn))
+//		{
+//			IxBaseCharacterInterface::Execute_SetPlayerHasBall(Pawn, false);
+//		}
+//
+//	}
+//}
+
+
 void AxplodeGameModeBase::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
 
-	// Temp
-	if (!Ball || Ball == nullptr)
-	{
-		SpawnBall();
-	}
+	//PlayerControllerList.Add(NewPlayer);
 
 	if (NewPlayer->GetClass()->ImplementsInterface(UxPlayerControllerInterface::StaticClass()))
 	{
@@ -55,17 +75,21 @@ void AxplodeGameModeBase::PostLogin(APlayerController* NewPlayer)
 		IxPlayerControllerInterface::Execute_ShowSelectTeam(NewPlayer);
 	}
 
-	
+
 }
 
 void AxplodeGameModeBase::BeginPlay()
 {
 	int counter = 0;
+
+	/*SpawnBall();*/
+
+
 	// iterate over all of our actors
 	for (TActorIterator<AxPlayerStartBase> PlayerStartIterator(GetWorld()); PlayerStartIterator; ++PlayerStartIterator)
 	{
 		AxPlayerStartBase* PlayerStart = *PlayerStartIterator;
-		
+
 		if (PlayerStart && PlayerStart != nullptr)
 		{
 			counter++;
@@ -75,13 +99,13 @@ void AxplodeGameModeBase::BeginPlay()
 			{
 				BlueSpanwPoints.Add(PlayerStart);
 			}
-			else 
+			else
 			{
 				RedSpawnPoints.Add(PlayerStart);
 			}
 
 		}
-		
+
 		// ensure actor is not null
 		// ignore self if found
 		// ensure we find actors of a specific interface only
@@ -108,13 +132,18 @@ void AxplodeGameModeBase::GetBluePrintPlayerClassRefs()
 	}
 }
 
-void AxplodeGameModeBase::SpawnBall()
-{
-	// This logic is temporary and only for prototype
-
-	FActorSpawnParameters SpawnParams;
-	SpawnParams.Owner = this;
-
-	Ball = GetWorld()->SpawnActor<AxBallBase>(AxBallBase::StaticClass(),FVector(200,177,227), FRotator(0,0,0), SpawnParams);
-}
+// This cannot happen here as this object will only exist on the server
+//void AxplodeGameModeBase::SpawnBall()
+//{
+//	// This logic is temporary and only for prototype
+//
+//	FActorSpawnParameters SpawnParams;
+//	/*SpawnParams.Owner = this;*/
+//
+//	//TPV Ball
+//	AxBallBase* Ball = GetWorld()->SpawnActor<AxBallBase>(AxBallBase::StaticClass(), FVector(200, 177, 227), FRotator(0, 0, 0), SpawnParams);
+//	Ball->SphereComp->SetOwnerNoSee(true); 
+//	
+//
+//}
 

@@ -5,6 +5,7 @@
 #include "xBaseCharacterInterface.h"
 #include "../xplode.h"
 #include <Components/PrimitiveComponent.h>
+#include "Net/UnrealNetwork.h"
 
 // Sets default values
 AxBallBase::AxBallBase()
@@ -47,12 +48,23 @@ void AxBallBase::NotifyActorBeginOverlap(AActor* OtherActor)
 	// Attach ball on server version of the player so that it can be replicated
 	if (HasAuthority() && 
 		OtherActor->ActorHasTag(FName("Player")) && 
-		OtherActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()) &&
-	    !IxBaseCharacterInterface::Execute_GetPlayerHasBall(OtherActor))
+		OtherActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()) && 
+		!IxBaseCharacterInterface::Execute_GetPlayerHasBall(OtherActor))
 	{
-		UE_LOG(LogTemp, Log, TEXT("TRUE"));
-			IxBaseCharacterInterface::Execute_SetPlayerHasBall(OtherActor, true);
-			IxBaseCharacterInterface::Execute_AttachBall(OtherActor, this);
+		SetOwner(OtherActor);
+		IxBaseCharacterInterface::Execute_AttachBall(OtherActor, this);
+
+		if (LastPlayerOwner && LastPlayerOwner != nullptr)
+		{
+			IxBaseCharacterInterface::Execute_DetachBall(LastPlayerOwner, this);
+		}
+		/*else 
+		{
+			UE_LOG(LogTemp, Log, TEXT("Last Player Owner is null"));
+		}*/
+		
+		LastPlayerOwner = OtherActor;
+		
 	}
 }
 
@@ -69,4 +81,11 @@ void AxBallBase::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 }
+
+//void AxBallBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+//{
+//	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+//
+//	DOREPLIFETIME(AxBallBase, LastPlayerOwner);
+//}
 

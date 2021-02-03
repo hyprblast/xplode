@@ -5,11 +5,12 @@
 #include "Components/CapsuleComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "xBallBase.h"
+#include "../xplodeGameModeBase.h"
 
 // Sets default values
 AxBaseCharacter::AxBaseCharacter()
 {
- 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
 
 
@@ -18,7 +19,7 @@ AxBaseCharacter::AxBaseCharacter()
 	/*CapsuleComp->SetGenerateOverlapEvents(false);*/
 	/*GetMesh()->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);*/
-	
+
 
 	CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	CameraComp->SetWorldLocation(FVector(0, 0, 70.0f));
@@ -28,7 +29,7 @@ AxBaseCharacter::AxBaseCharacter()
 	SkeletalMeshComp = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FPArms"));
 	SkeletalMeshComp->SetupAttachment(CameraComp);
 
-	
+
 
 	Tags.Add(FName("Player"));
 
@@ -39,28 +40,19 @@ bool AxBaseCharacter::GetPlayerHasBall_Implementation()
 	return bHasBall;
 }
 
-int32 AxBaseCharacter::SetPlayerHasBall_Implementation(bool bPlayerHasBall)
+
+int32 AxBaseCharacter::DetachBall_Implementation(AxBallBase* Ball)
 {
-	bHasBall = bPlayerHasBall;
+	bHasBall = false;
+	DestroyFPVBall();
 	return 1;
 }
 
 int32 AxBaseCharacter::AttachBall_Implementation(AxBallBase* Ball)
 {
-	if (Ball && Ball != nullptr)
-	{
-		BallInHand = Ball;
-		// Have to attach the spawned ball to TPV mesh and spawn a new one for FPV mesh with only owner sees
-		// TODO: will need some sort of sync component between the 2
-		
-		AttachBallToTPVMesh(Ball);
-
-		// Hide the ball from TPV from the client
-		ClientHideBallFromTPV(Ball);
-
-		// Spawn FPV ball on client 
-		ClientSpawnNewBallOnFPVMesh();
-	}
+	
+	AttachBallToTPVMesh(Ball);
+	SpawnNewBallOnFPVMesh();
 
 	return 1;
 }
@@ -92,9 +84,11 @@ void AxBaseCharacter::MoveRight(float Value)
 
 void AxBaseCharacter::AttachBallToTPVMesh(AxBallBase* Ball)
 {
+	bHasBall = true;
+
 	FName SocketName = TEXT("hand_socket");
 	USkeletalMeshComponent* TPVSkeletalMesh = GetMesh();
-	
+
 	/*Ball->SphereComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);*/
 	/*Ball->SphereComp->SetGenerateOverlapEvents(false);*/
 	/*Ball->SetOwner(this);*/
@@ -123,12 +117,7 @@ void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 }
 
 
-void AxBaseCharacter::ClientHideBallFromTPV_Implementation(AxBallBase* Ball)
-{
-	Ball->SetActorHiddenInGame(true);
-}
-
-void AxBaseCharacter::ClientSpawnNewBallOnFPVMesh_Implementation()
+void AxBaseCharacter::SpawnNewBallOnFPVMesh()
 {
 	FName SocketName = TEXT("hand_socket");
 
@@ -143,8 +132,19 @@ void AxBaseCharacter::ClientSpawnNewBallOnFPVMesh_Implementation()
 	BallInHand->SphereComp->SetGenerateOverlapEvents(false);
 	BallInHand->SphereComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	BallInHand->SphereComp->SetOnlyOwnerSee(true);
-	BallInHand->SetReplicates(false);
+	/*BallInHand->SetReplicates(true);*/
+	BallInHand->SetReplicateMovement(true);
 	BallInHand->AttachToComponent(SkeletalMeshComp, TransformRules, SocketName);
+	BallInHand->SetOwner(this);
+}
+
+void AxBaseCharacter::DestroyFPVBall()
+{
+	if (BallInHand && BallInHand != nullptr)
+	{
+		UE_LOG(LogTemp, Log, TEXT("Destroy ball in hand"));
+		BallInHand->Destroy();
+	}
 }
 
 void AxBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -152,5 +152,6 @@ void AxBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AxBaseCharacter, bHasBall);
+	DOREPLIFETIME(AxBaseCharacter, BallInHand);
 }
 

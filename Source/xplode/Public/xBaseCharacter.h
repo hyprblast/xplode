@@ -22,7 +22,7 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 		UCameraComponent* CameraComp;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 		USkeletalMeshComponent* SkeletalMeshComp;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
@@ -33,8 +33,8 @@ public:
 	virtual bool GetPlayerHasBall_Implementation() override; // This is the declaration of the implementation
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 SetPlayerHasBall(bool bPlayerHasBall);
-	virtual int32 SetPlayerHasBall_Implementation(bool bPlayerHasBall) override;
+		int32 DetachBall(AxBallBase* Ball);
+	virtual int32 DetachBall_Implementation(AxBallBase* Ball) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 AttachBall(AxBallBase* Ball);
@@ -44,12 +44,11 @@ public:
 
 	//virtual void Tick(float DeltaTime) override;
 
-	// Called from server, executed on client
-	UFUNCTION(Client, Reliable)
-		void ClientHideBallFromTPV(AxBallBase* Ball);
-
-	UFUNCTION(Client, Reliable)
-		void ClientSpawnNewBallOnFPVMesh();
+	UFUNCTION()
+		void SpawnNewBallOnFPVMesh();
+	
+	UFUNCTION()
+		void DestroyFPVBall();
 
 
 protected:
@@ -57,14 +56,15 @@ protected:
 	virtual void BeginPlay() override;
 	void MoveFoward(float Value);
 	void MoveRight(float Value);
+	UPROPERTY(Replicated)
+		AxBallBase* BallInHand;
 
 private:
 	UFUNCTION()
 	void AttachBallToTPVMesh(AxBallBase* Ball);
 
 
-	UPROPERTY()
-		AxBallBase* BallInHand;
+
 
 
 };

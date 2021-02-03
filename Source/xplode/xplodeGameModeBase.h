@@ -1,5 +1,5 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
-// NOTE: Gamemode only exists on server
+// NOTE: Gamemode only exists on server acts as the "controller" in MVC pattern
 
 #pragma once
 
@@ -23,8 +23,6 @@ public:
 	UPROPERTY()
 	TArray<TSubclassOf<AxBaseCharacter>> PlayerUIClasses;
 
-	UPROPERTY()
-	AxBallBase* Ball;
 
 protected:
 	virtual void PostLogin(APlayerController* NewPlayer) override;
@@ -36,8 +34,11 @@ private:
 	TArray<AxPlayerStartBase*> BlueSpanwPoints;
 	UPROPERTY()
 	TArray<AxPlayerStartBase*> RedSpawnPoints;
+	UPROPERTY()
+	TArray<APlayerController*> PlayerControllerList;
 	UFUNCTION()
 	void GetBluePrintPlayerClassRefs();
-	UFUNCTION()
-	void SpawnBall();
+	/*UFUNCTION()
+	void SpawnBall();*/
+
 };

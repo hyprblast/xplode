@@ -18,11 +18,12 @@ class XPLODE_API IxBaseCharacterInterface
 public:
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	bool GetPlayerHasBall();
+		bool GetPlayerHasBall();
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	int32 SetPlayerHasBall(bool bPlayerHasBall);
+		int32 DetachBall(AxBallBase* Ball);
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 AttachBall(AxBallBase* Ball);
+	
 };

@@ -26,4 +26,5 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SelectPlayerType(FName TypeName);
+	
 };
