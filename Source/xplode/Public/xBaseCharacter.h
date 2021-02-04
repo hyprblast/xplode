@@ -27,10 +27,21 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
 		bool bHasBall;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
+		bool bIsThrowing;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerIsThrowing();  // This is the prototype declared in the interface
+	virtual bool GetPlayerIsThrowing_Implementation() override; // This is the declaration of the implementation
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerHasBall();  // This is the prototype declared in the interface
 	virtual bool GetPlayerHasBall_Implementation() override; // This is the declaration of the implementation
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		float GetInputAxisYawValue();  
+	virtual float GetInputAxisYawValue_Implementation() override; 
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 DetachBall(AxBallBase* Ball);
@@ -40,6 +51,10 @@ public:
 		int32 AttachBall(AxBallBase* Ball);
 	virtual int32 AttachBall_Implementation(AxBallBase* Ball) override;
 
+	//Called from client, executed on server, withvalidation is required for this
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerThrowBall(FVector CameraLocation, FVector CameraFowardVector);
+
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	//virtual void Tick(float DeltaTime) override;
@@ -48,23 +63,29 @@ public:
 		void SpawnNewBallOnFPVMesh();
 	
 	UFUNCTION()
-		void DestroyFPVBall();
+		void DestroyBalls();
 
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+	UFUNCTION()
 	void MoveFoward(float Value);
+	UFUNCTION()
 	void MoveRight(float Value);
+	UFUNCTION()
+		void Turn(float Value);
+	UFUNCTION()
+		void ThrowBall();
+	UPROPERTY(BlueprintReadOnly, Category = "Default")
+		float InputAxisYawValue = 0;
 	UPROPERTY(Replicated)
-		AxBallBase* BallInHand;
+		AxBallBase* FPVBall;
+	UPROPERTY(Replicated)
+		AxBallBase* TPVBall;
 
 private:
 	UFUNCTION()
 	void AttachBallToTPVMesh(AxBallBase* Ball);
-
-
-
-
 
 };

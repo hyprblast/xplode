@@ -6,6 +6,11 @@
 #include "Net/UnrealNetwork.h"
 #include "xBallBase.h"
 #include "../xplodeGameModeBase.h"
+#include "GeneratedCodeHelpers.h"
+#include "CollisionQueryParams.h"
+#include "../xplode.h"
+#include "Math/Color.h"
+#include "DrawDebugHelpers.h"
 
 // Sets default values
 AxBaseCharacter::AxBaseCharacter()
@@ -35,22 +40,32 @@ AxBaseCharacter::AxBaseCharacter()
 
 }
 
+bool AxBaseCharacter::GetPlayerIsThrowing_Implementation()
+{
+	return bIsThrowing;
+}
+
 bool AxBaseCharacter::GetPlayerHasBall_Implementation()
 {
 	return bHasBall;
 }
 
 
+float AxBaseCharacter::GetInputAxisYawValue_Implementation()
+{
+	return InputAxisYawValue;
+}
+
 int32 AxBaseCharacter::DetachBall_Implementation(AxBallBase* Ball)
 {
 	bHasBall = false;
-	DestroyFPVBall();
+	DestroyBalls();
 	return 1;
 }
 
 int32 AxBaseCharacter::AttachBall_Implementation(AxBallBase* Ball)
 {
-	
+
 	AttachBallToTPVMesh(Ball);
 	SpawnNewBallOnFPVMesh();
 
@@ -85,7 +100,7 @@ void AxBaseCharacter::MoveRight(float Value)
 void AxBaseCharacter::AttachBallToTPVMesh(AxBallBase* Ball)
 {
 	bHasBall = true;
-
+	
 	FName SocketName = TEXT("hand_socket");
 	USkeletalMeshComponent* TPVSkeletalMesh = GetMesh();
 
@@ -97,10 +112,49 @@ void AxBaseCharacter::AttachBallToTPVMesh(AxBallBase* Ball)
 
 	/*Ball->SphereComp->SetOwnerNoSee(true);*/
 	Ball->AttachToComponent(TPVSkeletalMesh, TransformRules, SocketName);
+	
+	TPVBall = Ball;
 
 	/*Ball->SetActorTransform(TPVSocketTransform);*/
 }
 
+
+void AxBaseCharacter::Turn(float Value)
+{
+	InputAxisYawValue = Value;
+	AxBaseCharacter::AddControllerYawInput(Value);
+}
+
+void AxBaseCharacter::ThrowBall()
+{
+	ServerThrowBall(CameraComp->GetComponentLocation(), CameraComp->GetForwardVector());
+}
+
+void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraLocation, FVector CameraFowardVector)
+{
+	FHitResult Hit;
+	FTransform ThrowTo;
+	FRotator LookAtRotation;
+
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(this);
+	QueryParams.bTraceComplex = true;
+	QueryParams.bReturnPhysicalMaterial = true;
+
+	FVector TraceStart = CameraLocation;
+	FVector TraceEnd = TraceStart + (CameraFowardVector * 10000);
+	
+	bIsThrowing = true;
+
+	DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::White, false, 1.0f, 0, 1.0f);
+
+	GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, XBALTRACE_CHANNEL, QueryParams);
+}
+
+bool AxBaseCharacter::ServerThrowBall_Validate(FVector CameraLocation, FVector CameraFowardVector)
+{
+	return bHasBall && IsValid(TPVBall);
+}
 
 // Called to bind functionality to input
 void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -108,12 +162,13 @@ void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
 	PlayerInputComponent->BindAxis("LookUp", this, &AxBaseCharacter::AddControllerPitchInput);
-	PlayerInputComponent->BindAxis("Turn", this, &AxBaseCharacter::AddControllerYawInput);
+	PlayerInputComponent->BindAxis("Turn", this, &AxBaseCharacter::Turn);
 
 	PlayerInputComponent->BindAxis("MoveFoward", this, &AxBaseCharacter::MoveFoward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &AxBaseCharacter::MoveRight);
 
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AxBaseCharacter::Jump);
+	PlayerInputComponent->BindAction("ThrowBall", IE_Pressed, this, &AxBaseCharacter::ThrowBall);
 }
 
 
@@ -128,23 +183,26 @@ void AxBaseCharacter::SpawnNewBallOnFPVMesh()
 	FAttachmentTransformRules TransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, true);
 	FTransform FPVSocketTransform = SkeletalMeshComp->GetSocketTransform(SocketName, RTS_World);
 
-	BallInHand = GetWorld()->SpawnActor<AxBallBase>(AxBallBase::StaticClass(), FPVSocketTransform, spawnParams);
-	BallInHand->SphereComp->SetGenerateOverlapEvents(false);
-	BallInHand->SphereComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	BallInHand->SphereComp->SetOnlyOwnerSee(true);
-	/*BallInHand->SetReplicates(true);*/
-	BallInHand->SetReplicateMovement(true);
-	BallInHand->AttachToComponent(SkeletalMeshComp, TransformRules, SocketName);
-	BallInHand->SetOwner(this);
+	FPVBall = GetWorld()->SpawnActor<AxBallBase>(AxBallBase::StaticClass(), FPVSocketTransform, spawnParams);
+	FPVBall->SphereComp->SetGenerateOverlapEvents(false);
+	FPVBall->SphereComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	FPVBall->SphereComp->SetOnlyOwnerSee(true);
+	/*FPVBall->SetReplicates(true);*/
+	FPVBall->SetReplicateMovement(true);
+	FPVBall->AttachToComponent(SkeletalMeshComp, TransformRules, SocketName);
+	FPVBall->SetOwner(this);
 }
 
-void AxBaseCharacter::DestroyFPVBall()
+void AxBaseCharacter::DestroyBalls()
 {
-	if (BallInHand && BallInHand != nullptr)
+	FPVBall = nullptr;
+	TPVBall = nullptr;
+	
+	/*if (FPVBall && FPVBall != nullptr && )
 	{
 		UE_LOG(LogTemp, Log, TEXT("Destroy ball in hand"));
-		BallInHand->Destroy();
-	}
+		FPVBall->Destroy();
+	}*/
 }
 
 void AxBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -152,6 +210,8 @@ void AxBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AxBaseCharacter, bHasBall);
-	DOREPLIFETIME(AxBaseCharacter, BallInHand);
+	DOREPLIFETIME(AxBaseCharacter, FPVBall);
+	DOREPLIFETIME(AxBaseCharacter, TPVBall);
+	DOREPLIFETIME(AxBaseCharacter, bIsThrowing);
 }
 
