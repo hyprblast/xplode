@@ -166,6 +166,11 @@ void AxBaseCharacter::PlayThrowBallAnim()
 	}
 }
 
+void AxBaseCharacter::PlayCatchCenterBallAnim()
+{
+
+}
+
 void AxBaseCharacter::ServerPlayTPVThrowBallAnim_Implementation()
 {
 	bIsThrowing = true;
@@ -408,6 +413,8 @@ void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AxBaseCharacter::Jump);
 	PlayerInputComponent->BindAction("ThrowBall", IE_Pressed, this, &AxBaseCharacter::PlayThrowBallAnim);
+
+	PlayerInputComponent->BindAction("CatchCenter", IE_Pressed, this, &AxBaseCharacter::PlayCatchCenterBallAnim);
 }
 
 

@@ -7,7 +7,7 @@
 #include "Camera/CameraComponent.h"
 #include "xBaseCharacterInterface.h"
 #include "GameFramework/DamageType.h"
-#include <Animation/AnimMontage.h>
+#include "Animation/AnimMontage.h"
 #include "xBaseCharacter.generated.h"
 
 class UCameraComponent;
@@ -95,6 +95,8 @@ protected:
 		void Turn(float Value);
 	UFUNCTION()
 		void PlayThrowBallAnim();
+	UFUNCTION()
+		void PlayCatchCenterBallAnim();
 	UFUNCTION()
 		void HandleTakeAnyDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser);
 	UPROPERTY(BlueprintReadOnly, Category = "Default")
