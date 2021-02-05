@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "GameFramework/DamageType.h"
 #include "xBallBase.generated.h"
 
 UCLASS()
@@ -19,13 +20,20 @@ public:
 	virtual void NotifyActorBeginOverlap(AActor* OtherActor) override;
 
 	// Called every frame
-	virtual void Tick(float DeltaTime) override;
+	/*virtual void Tick(float DeltaTime) override;*/
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 		UStaticMeshComponent* SphereComp;
 
 	UPROPERTY()
 	AActor* LastPlayerOwner;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Default")
+	TSubclassOf<UDamageType> DamageType;
+
+	UPROPERTY()
+	float Damage = 28.0f;
+
 	/*UFUNCTION()
 	void CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, class AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);*/
 protected:

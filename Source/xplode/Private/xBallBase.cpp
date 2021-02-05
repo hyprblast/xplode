@@ -4,31 +4,35 @@
 #include "xBallBase.h"
 #include "xBaseCharacterInterface.h"
 #include "../xplode.h"
-#include <Components/PrimitiveComponent.h>
+#include "Components/PrimitiveComponent.h"
 #include "Net/UnrealNetwork.h"
+
 
 // Sets default values
 AxBallBase::AxBallBase()
 {
-	SphereComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Sphere"));
+	PrimaryActorTick.bCanEverTick = false;
 	SphereStaticMeshObject = Cast<UStaticMesh>(StaticLoadObject(UStaticMesh::StaticClass(), NULL, TEXT("StaticMesh'/Game/_Main/StaticMeshes/xprotoball.xprotoball'")));
 	
-	if (SphereStaticMeshObject && SphereStaticMeshObject != nullptr)
+	if (IsValid(SphereStaticMeshObject))
 	{
+		SphereComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Sphere"));
 		SphereComp->SetCollisionObjectType(XBALLOBJECT_CHANNEL);
 		SphereComp->SetCollisionProfileName(TEXT("xBallCollision"));
 		SphereComp->SetGenerateOverlapEvents(true);
 		SphereComp->SetStaticMesh(SphereStaticMeshObject);
 		SphereComp->SetupAttachment(RootComponent);
+		/*SphereComp->SetSimulatePhysics(true);*/
+		SphereComp->SetIsReplicated(true);
+		SphereComp->CanCharacterStepUp(false);
+		/*SphereComp->SetUseCCD(true);*/
 	/*	SphereComp->OnComponentBeginOverlap.AddDynamic(this, &AxBallBase::CallOnOverlap);*/
 		SetRootComponent(SphereComp);
-
+	
+		bReplicates = true;
+		SetReplicateMovement(true);
 	}
-
-	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
-	bReplicates = true;
-	SetReplicateMovement(true);
+	
 }
 
 //void AxBallBase::CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, class AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -76,11 +80,11 @@ void AxBallBase::BeginPlay()
 }
 
 // Called every frame
-void AxBallBase::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-}
+//void AxBallBase::Tick(float DeltaTime)
+//{
+//	Super::Tick(DeltaTime);
+//
+//}
 
 //void AxBallBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 //{

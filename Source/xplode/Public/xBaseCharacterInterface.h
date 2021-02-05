@@ -24,6 +24,9 @@ public:
 		bool GetPlayerIsThrowing();
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 SetPlayerIsThrowing(bool bPlayerIsThrowing);
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		float GetInputAxisYawValue();
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
@@ -31,5 +34,8 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 AttachBall(AxBallBase* Ball);
+	
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 ThrowBall();
 	
 };

@@ -11,6 +11,16 @@
 #include "../xplode.h"
 #include "Math/Color.h"
 #include "DrawDebugHelpers.h"
+#include "Chaos/ChaosEngineInterface.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
+#include "Engine/EngineTypes.h"
+#include "Engine/Engine.h"
+#include "Kismet/GameplayStatics.h"
+#include <GameFramework/Actor.h>
+#include <Engine/World.h>
+#include "xBallProjectileBase.h"
+#include "Kismet/KismetMathLibrary.h"
+
 
 // Sets default values
 AxBaseCharacter::AxBaseCharacter()
@@ -34,9 +44,11 @@ AxBaseCharacter::AxBaseCharacter()
 	SkeletalMeshComp = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FPArms"));
 	SkeletalMeshComp->SetupAttachment(CameraComp);
 
-
-
 	Tags.Add(FName("Player"));
+
+	// Load References
+	ThrowBallMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/ThrowBallAnimMontage.ThrowBallAnimMontage'")));
+	ThrowBallMontageTPV = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/ThrowBallAnimMontageTPV.ThrowBallAnimMontageTPV'")));
 
 }
 
@@ -50,6 +62,18 @@ bool AxBaseCharacter::GetPlayerHasBall_Implementation()
 	return bHasBall;
 }
 
+
+int32 AxBaseCharacter::SetPlayerIsThrowing_Implementation(bool bPlayerIsThrowing)
+{
+	ServerSetPLayerIsThrowing(bPlayerIsThrowing);
+	return 1;
+}
+
+int32 AxBaseCharacter::ThrowBall_Implementation()
+{
+	ServerThrowBall(CameraComp->GetComponentLocation(), CameraComp->GetForwardVector());
+	return 1;
+}
 
 float AxBaseCharacter::GetInputAxisYawValue_Implementation()
 {
@@ -76,6 +100,13 @@ int32 AxBaseCharacter::AttachBall_Implementation(AxBallBase* Ball)
 void AxBaseCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
+	OnTakeAnyDamage.AddDynamic(this, &AxBaseCharacter::HandleTakeAnyDamage);
+}
+
+void AxBaseCharacter::HandleTakeAnyDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser)
+{
+
 }
 
 // Called every frame
@@ -100,7 +131,7 @@ void AxBaseCharacter::MoveRight(float Value)
 void AxBaseCharacter::AttachBallToTPVMesh(AxBallBase* Ball)
 {
 	bHasBall = true;
-	
+
 	FName SocketName = TEXT("hand_socket");
 	USkeletalMeshComponent* TPVSkeletalMesh = GetMesh();
 
@@ -112,7 +143,7 @@ void AxBaseCharacter::AttachBallToTPVMesh(AxBallBase* Ball)
 
 	/*Ball->SphereComp->SetOwnerNoSee(true);*/
 	Ball->AttachToComponent(TPVSkeletalMesh, TransformRules, SocketName);
-	
+
 	TPVBall = Ball;
 
 	/*Ball->SetActorTransform(TPVSocketTransform);*/
@@ -125,35 +156,243 @@ void AxBaseCharacter::Turn(float Value)
 	AxBaseCharacter::AddControllerYawInput(Value);
 }
 
-void AxBaseCharacter::ThrowBall()
+void AxBaseCharacter::PlayThrowBallAnim()
 {
-	ServerThrowBall(CameraComp->GetComponentLocation(), CameraComp->GetForwardVector());
+	if (bHasBall)
+	{
+		bIsThrowing = true;
+		SkeletalMeshComp->GetAnimInstance()->Montage_Play(ThrowBallMontage);
+		ServerPlayTPVThrowBallAnim();
+	}
+}
+
+void AxBaseCharacter::ServerPlayTPVThrowBallAnim_Implementation()
+{
+	bIsThrowing = true;
+	MulticastPlayTPVThrowAnimation();
+}
+
+bool AxBaseCharacter::ServerPlayTPVThrowBallAnim_Validate()
+{
+	return IsValid(TPVBall);
 }
 
 void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraLocation, FVector CameraFowardVector)
 {
+	
 	FHitResult Hit;
-	FTransform ThrowTo;
-	FRotator LookAtRotation;
+	/*FName SocketName = TEXT("hand_socket");*/
+	FVector TraceStart = CameraLocation;
+	FVector TraceEnd = TraceStart + (CameraFowardVector * 10000);
+	/*FTransform SocketTransform = GetMesh()->GetSocketTransform(SocketName, RTS_World);*/
+	FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(CameraLocation, TraceEnd);
+	FTransform ThrowTo = UKismetMathLibrary::MakeTransform(CameraLocation, LookAtRotation, FVector(1.0f, 1.0f, 1.0f));
+	
 
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
 	QueryParams.bTraceComplex = true;
 	QueryParams.bReturnPhysicalMaterial = true;
 
-	FVector TraceStart = CameraLocation;
-	FVector TraceEnd = TraceStart + (CameraFowardVector * 10000);
-	
-	bIsThrowing = true;
+	/*DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::White, false, 1.0f, 0, 1.0f);*/
 
-	DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::White, false, 1.0f, 0, 1.0f);
+	if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, XBALTRACE_CHANNEL, QueryParams))
+	{
+		// Hit something
+		EPhysicalSurface SurfaceType = UPhysicalMaterial::DetermineSurfaceType(Hit.PhysMaterial.Get());
+		float DamageToApply = 0;
 
-	GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, XBALTRACE_CHANNEL, QueryParams);
+		AActor* HitActor = Hit.GetActor();
+
+		/*if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Yellow, TEXT("HEAD"));
+		}*/
+
+		switch (SurfaceType)
+		{
+		case SurfaceType_Default:
+			break;
+		case HEAD:
+			DamageToApply = TPVBall->Damage * 4.0f;
+			break;
+		case TORSO:
+			DamageToApply = TPVBall->Damage * 2.0f;
+			break;
+		case ARMS:
+			DamageToApply = TPVBall->Damage * 0.6f;
+			break;
+		case LEGS:
+			DamageToApply = TPVBall->Damage * 0.7f;
+			break;
+		case SurfaceType5:
+			break;
+		case SurfaceType6:
+			break;
+		case SurfaceType7:
+			break;
+		case SurfaceType8:
+			break;
+		case SurfaceType9:
+			break;
+		case SurfaceType10:
+			break;
+		case SurfaceType11:
+			break;
+		case SurfaceType12:
+			break;
+		case SurfaceType13:
+			break;
+		case SurfaceType14:
+			break;
+		case SurfaceType15:
+			break;
+		case SurfaceType16:
+			break;
+		case SurfaceType17:
+			break;
+		case SurfaceType18:
+			break;
+		case SurfaceType19:
+			break;
+		case SurfaceType20:
+			break;
+		case SurfaceType21:
+			break;
+		case SurfaceType22:
+			break;
+		case SurfaceType23:
+			break;
+		case SurfaceType24:
+			break;
+		case SurfaceType25:
+			break;
+		case SurfaceType26:
+			break;
+		case SurfaceType27:
+			break;
+		case SurfaceType28:
+			break;
+		case SurfaceType29:
+			break;
+		case SurfaceType30:
+			break;
+		case SurfaceType31:
+			break;
+		case SurfaceType32:
+			break;
+		case SurfaceType33:
+			break;
+		case SurfaceType34:
+			break;
+		case SurfaceType35:
+			break;
+		case SurfaceType36:
+			break;
+		case SurfaceType37:
+			break;
+		case SurfaceType38:
+			break;
+		case SurfaceType39:
+			break;
+		case SurfaceType40:
+			break;
+		case SurfaceType41:
+			break;
+		case SurfaceType42:
+			break;
+		case SurfaceType43:
+			break;
+		case SurfaceType44:
+			break;
+		case SurfaceType45:
+			break;
+		case SurfaceType46:
+			break;
+		case SurfaceType47:
+			break;
+		case SurfaceType48:
+			break;
+		case SurfaceType49:
+			break;
+		case SurfaceType50:
+			break;
+		case SurfaceType51:
+			break;
+		case SurfaceType52:
+			break;
+		case SurfaceType53:
+			break;
+		case SurfaceType54:
+			break;
+		case SurfaceType55:
+			break;
+		case SurfaceType56:
+			break;
+		case SurfaceType57:
+			break;
+		case SurfaceType58:
+			break;
+		case SurfaceType59:
+			break;
+		case SurfaceType60:
+			break;
+		case SurfaceType61:
+			break;
+		case SurfaceType62:
+			break;
+		case SurfaceType_Max:
+			break;
+		default:
+			break;
+		}
+		
+		// Spawn Projectile Ball
+		
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = this;
+		SpawnParams.Instigator = this;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+		AxBallProjectileBase* BallProjectile = GetWorld()->SpawnActor<AxBallProjectileBase>(AxBallProjectileBase::StaticClass(), ThrowTo, SpawnParams);
+
+		/*TPVBall->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);*/
+	/*	TPVBall->SphereComp->SetSimulatePhysics(true);
+		TPVBall->SphereComp->AddImpulse(TraceEnd);*/
+
+		if (DamageToApply > 0)
+		{
+			UGameplayStatics::ApplyPointDamage(HitActor, DamageToApply, CameraFowardVector, Hit, GetOwner()->GetInstigatorController(), TPVBall, TPVBall->DamageType);
+		}
+
+		DestroyBalls();
+	}
 }
 
 bool AxBaseCharacter::ServerThrowBall_Validate(FVector CameraLocation, FVector CameraFowardVector)
 {
-	return bHasBall && IsValid(TPVBall);
+	return IsValid(TPVBall);
+}
+
+void AxBaseCharacter::ServerSetPLayerIsThrowing_Implementation(bool bPlayerIsThrowing)
+{
+	bIsThrowing = bPlayerIsThrowing;
+	bHasBall = bIsThrowing;
+}
+
+bool AxBaseCharacter::ServerSetPLayerIsThrowing_Validate(bool bPlayerIsThrowing)
+{
+	return true;
+}
+
+void AxBaseCharacter::MulticastPlayTPVThrowAnimation_Implementation()
+{
+	// Play on all instances of this actor
+	if (IsValid(ThrowBallMontageTPV))
+	{
+		bIsThrowing = true;
+		GetMesh()->GetAnimInstance()->Montage_Play(ThrowBallMontageTPV);
+	}
 }
 
 // Called to bind functionality to input
@@ -168,7 +407,7 @@ void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 	PlayerInputComponent->BindAxis("MoveRight", this, &AxBaseCharacter::MoveRight);
 
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AxBaseCharacter::Jump);
-	PlayerInputComponent->BindAction("ThrowBall", IE_Pressed, this, &AxBaseCharacter::ThrowBall);
+	PlayerInputComponent->BindAction("ThrowBall", IE_Pressed, this, &AxBaseCharacter::PlayThrowBallAnim);
 }
 
 
@@ -187,22 +426,19 @@ void AxBaseCharacter::SpawnNewBallOnFPVMesh()
 	FPVBall->SphereComp->SetGenerateOverlapEvents(false);
 	FPVBall->SphereComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	FPVBall->SphereComp->SetOnlyOwnerSee(true);
-	/*FPVBall->SetReplicates(true);*/
-	FPVBall->SetReplicateMovement(true);
+	FPVBall->SetReplicates(false);
+	FPVBall->SetReplicateMovement(false);
 	FPVBall->AttachToComponent(SkeletalMeshComp, TransformRules, SocketName);
 	FPVBall->SetOwner(this);
 }
 
 void AxBaseCharacter::DestroyBalls()
 {
-	FPVBall = nullptr;
-	TPVBall = nullptr;
-	
-	/*if (FPVBall && FPVBall != nullptr && )
+	if (IsValid(FPVBall) && IsValid(TPVBall))
 	{
-		UE_LOG(LogTemp, Log, TEXT("Destroy ball in hand"));
 		FPVBall->Destroy();
-	}*/
+		TPVBall->Destroy();
+	}
 }
 
 void AxBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
