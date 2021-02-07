@@ -16,8 +16,8 @@
 #include "Engine/EngineTypes.h"
 #include "Engine/Engine.h"
 #include "Kismet/GameplayStatics.h"
-#include <GameFramework/Actor.h>
-#include <Engine/World.h>
+#include "GameFramework/Actor.h"
+#include "Engine/World.h"
 #include "xBallProjectileBase.h"
 #include "Kismet/KismetMathLibrary.h"
 
@@ -194,184 +194,189 @@ void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraLocation, FVe
 	FTransform ThrowTo = UKismetMathLibrary::MakeTransform(CameraLocation, LookAtRotation, FVector(1.0f, 1.0f, 1.0f));
 	
 
-	FCollisionQueryParams QueryParams;
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = this;
+	SpawnParams.Instigator = this;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	AxBallBase* BallProjectile = GetWorld()->SpawnActor<AxBallBase>(AxBallBase::StaticClass(), ThrowTo, SpawnParams);
+	BallProjectile->Shoot(CameraFowardVector * 2000, 2000);
+
+	DestroyBalls();
+
+	/*FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
 	QueryParams.bTraceComplex = true;
-	QueryParams.bReturnPhysicalMaterial = true;
+	QueryParams.bReturnPhysicalMaterial = true;*/
 
 	/*DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::White, false, 1.0f, 0, 1.0f);*/
 
-	if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, XBALTRACE_CHANNEL, QueryParams))
-	{
-		// Hit something
-		EPhysicalSurface SurfaceType = UPhysicalMaterial::DetermineSurfaceType(Hit.PhysMaterial.Get());
-		float DamageToApply = 0;
+	//if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, XBALTRACE_CHANNEL, QueryParams))
+	//{
+	//	// Hit something
+	//	EPhysicalSurface SurfaceType = UPhysicalMaterial::DetermineSurfaceType(Hit.PhysMaterial.Get());
+	//	float DamageToApply = 0;
 
-		AActor* HitActor = Hit.GetActor();
+	//	AActor* HitActor = Hit.GetActor();
 
-		/*if (GEngine)
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Yellow, TEXT("HEAD"));
-		}*/
+	//	/*if (GEngine)
+	//	{
+	//		GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Yellow, TEXT("HEAD"));
+	//	}*/
 
-		switch (SurfaceType)
-		{
-		case SurfaceType_Default:
-			break;
-		case HEAD:
-			DamageToApply = TPVBall->Damage * 4.0f;
-			break;
-		case TORSO:
-			DamageToApply = TPVBall->Damage * 2.0f;
-			break;
-		case ARMS:
-			DamageToApply = TPVBall->Damage * 0.6f;
-			break;
-		case LEGS:
-			DamageToApply = TPVBall->Damage * 0.7f;
-			break;
-		case SurfaceType5:
-			break;
-		case SurfaceType6:
-			break;
-		case SurfaceType7:
-			break;
-		case SurfaceType8:
-			break;
-		case SurfaceType9:
-			break;
-		case SurfaceType10:
-			break;
-		case SurfaceType11:
-			break;
-		case SurfaceType12:
-			break;
-		case SurfaceType13:
-			break;
-		case SurfaceType14:
-			break;
-		case SurfaceType15:
-			break;
-		case SurfaceType16:
-			break;
-		case SurfaceType17:
-			break;
-		case SurfaceType18:
-			break;
-		case SurfaceType19:
-			break;
-		case SurfaceType20:
-			break;
-		case SurfaceType21:
-			break;
-		case SurfaceType22:
-			break;
-		case SurfaceType23:
-			break;
-		case SurfaceType24:
-			break;
-		case SurfaceType25:
-			break;
-		case SurfaceType26:
-			break;
-		case SurfaceType27:
-			break;
-		case SurfaceType28:
-			break;
-		case SurfaceType29:
-			break;
-		case SurfaceType30:
-			break;
-		case SurfaceType31:
-			break;
-		case SurfaceType32:
-			break;
-		case SurfaceType33:
-			break;
-		case SurfaceType34:
-			break;
-		case SurfaceType35:
-			break;
-		case SurfaceType36:
-			break;
-		case SurfaceType37:
-			break;
-		case SurfaceType38:
-			break;
-		case SurfaceType39:
-			break;
-		case SurfaceType40:
-			break;
-		case SurfaceType41:
-			break;
-		case SurfaceType42:
-			break;
-		case SurfaceType43:
-			break;
-		case SurfaceType44:
-			break;
-		case SurfaceType45:
-			break;
-		case SurfaceType46:
-			break;
-		case SurfaceType47:
-			break;
-		case SurfaceType48:
-			break;
-		case SurfaceType49:
-			break;
-		case SurfaceType50:
-			break;
-		case SurfaceType51:
-			break;
-		case SurfaceType52:
-			break;
-		case SurfaceType53:
-			break;
-		case SurfaceType54:
-			break;
-		case SurfaceType55:
-			break;
-		case SurfaceType56:
-			break;
-		case SurfaceType57:
-			break;
-		case SurfaceType58:
-			break;
-		case SurfaceType59:
-			break;
-		case SurfaceType60:
-			break;
-		case SurfaceType61:
-			break;
-		case SurfaceType62:
-			break;
-		case SurfaceType_Max:
-			break;
-		default:
-			break;
-		}
-		
-		// Spawn Projectile Ball
-		
-		FActorSpawnParameters SpawnParams;
-		SpawnParams.Owner = this;
-		SpawnParams.Instigator = this;
-		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	//	switch (SurfaceType)
+	//	{
+	//	case SurfaceType_Default:
+	//		break;
+	//	case HEAD:
+	//		DamageToApply = TPVBall->Damage * 4.0f;
+	//		break;
+	//	case TORSO:
+	//		DamageToApply = TPVBall->Damage * 2.0f;
+	//		break;
+	//	case ARMS:
+	//		DamageToApply = TPVBall->Damage * 0.6f;
+	//		break;
+	//	case LEGS:
+	//		DamageToApply = TPVBall->Damage * 0.7f;
+	//		break;
+	//	case SurfaceType5:
+	//		break;
+	//	case SurfaceType6:
+	//		break;
+	//	case SurfaceType7:
+	//		break;
+	//	case SurfaceType8:
+	//		break;
+	//	case SurfaceType9:
+	//		break;
+	//	case SurfaceType10:
+	//		break;
+	//	case SurfaceType11:
+	//		break;
+	//	case SurfaceType12:
+	//		break;
+	//	case SurfaceType13:
+	//		break;
+	//	case SurfaceType14:
+	//		break;
+	//	case SurfaceType15:
+	//		break;
+	//	case SurfaceType16:
+	//		break;
+	//	case SurfaceType17:
+	//		break;
+	//	case SurfaceType18:
+	//		break;
+	//	case SurfaceType19:
+	//		break;
+	//	case SurfaceType20:
+	//		break;
+	//	case SurfaceType21:
+	//		break;
+	//	case SurfaceType22:
+	//		break;
+	//	case SurfaceType23:
+	//		break;
+	//	case SurfaceType24:
+	//		break;
+	//	case SurfaceType25:
+	//		break;
+	//	case SurfaceType26:
+	//		break;
+	//	case SurfaceType27:
+	//		break;
+	//	case SurfaceType28:
+	//		break;
+	//	case SurfaceType29:
+	//		break;
+	//	case SurfaceType30:
+	//		break;
+	//	case SurfaceType31:
+	//		break;
+	//	case SurfaceType32:
+	//		break;
+	//	case SurfaceType33:
+	//		break;
+	//	case SurfaceType34:
+	//		break;
+	//	case SurfaceType35:
+	//		break;
+	//	case SurfaceType36:
+	//		break;
+	//	case SurfaceType37:
+	//		break;
+	//	case SurfaceType38:
+	//		break;
+	//	case SurfaceType39:
+	//		break;
+	//	case SurfaceType40:
+	//		break;
+	//	case SurfaceType41:
+	//		break;
+	//	case SurfaceType42:
+	//		break;
+	//	case SurfaceType43:
+	//		break;
+	//	case SurfaceType44:
+	//		break;
+	//	case SurfaceType45:
+	//		break;
+	//	case SurfaceType46:
+	//		break;
+	//	case SurfaceType47:
+	//		break;
+	//	case SurfaceType48:
+	//		break;
+	//	case SurfaceType49:
+	//		break;
+	//	case SurfaceType50:
+	//		break;
+	//	case SurfaceType51:
+	//		break;
+	//	case SurfaceType52:
+	//		break;
+	//	case SurfaceType53:
+	//		break;
+	//	case SurfaceType54:
+	//		break;
+	//	case SurfaceType55:
+	//		break;
+	//	case SurfaceType56:
+	//		break;
+	//	case SurfaceType57:
+	//		break;
+	//	case SurfaceType58:
+	//		break;
+	//	case SurfaceType59:
+	//		break;
+	//	case SurfaceType60:
+	//		break;
+	//	case SurfaceType61:
+	//		break;
+	//	case SurfaceType62:
+	//		break;
+	//	case SurfaceType_Max:
+	//		break;
+	//	default:
+	//		break;
+	//	}
+	//	
+	//	// Spawn Projectile Ball
+	//	
+	//	
 
-		AxBallProjectileBase* BallProjectile = GetWorld()->SpawnActor<AxBallProjectileBase>(AxBallProjectileBase::StaticClass(), ThrowTo, SpawnParams);
+	//	/*TPVBall->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);*/
+	///*	TPVBall->SphereComp->SetSimulatePhysics(true);
+	//	TPVBall->SphereComp->AddImpulse(TraceEnd);*/
 
-		/*TPVBall->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);*/
-	/*	TPVBall->SphereComp->SetSimulatePhysics(true);
-		TPVBall->SphereComp->AddImpulse(TraceEnd);*/
+	//	/*if (DamageToApply > 0)
+	//	{
+	//		UGameplayStatics::ApplyPointDamage(HitActor, DamageToApply, CameraFowardVector, Hit, GetOwner()->GetInstigatorController(), TPVBall, TPVBall->DamageType);
+	//	}*/
 
-		if (DamageToApply > 0)
-		{
-			UGameplayStatics::ApplyPointDamage(HitActor, DamageToApply, CameraFowardVector, Hit, GetOwner()->GetInstigatorController(), TPVBall, TPVBall->DamageType);
-		}
-
-		DestroyBalls();
-	}
+	//	DestroyBalls();
+	//}
 }
 
 bool AxBaseCharacter::ServerThrowBall_Validate(FVector CameraLocation, FVector CameraFowardVector)
@@ -432,6 +437,7 @@ void AxBaseCharacter::SpawnNewBallOnFPVMesh()
 	FPVBall = GetWorld()->SpawnActor<AxBallBase>(AxBallBase::StaticClass(), FPVSocketTransform, spawnParams);
 	FPVBall->SphereComp->SetGenerateOverlapEvents(false);
 	FPVBall->SphereComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	FPVBall->SphereComp->SetSimulatePhysics(false);
 	FPVBall->SphereComp->SetOnlyOwnerSee(true);
 	FPVBall->SetReplicates(false);
 	FPVBall->SetReplicateMovement(false);
