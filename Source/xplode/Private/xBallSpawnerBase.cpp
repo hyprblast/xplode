@@ -4,6 +4,7 @@
 #include "xBallSpawnerBase.h"
 #include "Engine/World.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "xBallProjectileBase.h"
 
 // Sets default values
 AxBallSpawnerBase::AxBallSpawnerBase()
@@ -40,10 +41,11 @@ void AxBallSpawnerBase::SpawnBall()
 
 		FTransform SpawnWhere = UKismetMathLibrary::MakeTransform(FVector(1534, 1467, 248), FRotator(0, 0, 0), FVector(1.0f, 1.0f, 1.0f));
 
-		AxBallBase* BallProjectile = GetWorld()->SpawnActor<AxBallBase>(AxBallBase::StaticClass(), SpawnWhere, SpawnParams);
-		//BallProjectile->SphereComp->SetSimulatePhysics(true);
+		AxBallProjectileBase* BallProjectile = GetWorld()->SpawnActor<AxBallProjectileBase>(AxBallProjectileBase::StaticClass(), SpawnWhere, SpawnParams);
+		BallProjectile->AddCollision();
 		BallProjectile->Shoot(FVector(0, -100, 800), 2000);
 	}
+	
 }
 
 

@@ -46,10 +46,6 @@ AxBaseCharacter::AxBaseCharacter()
 
 	Tags.Add(FName("Player"));
 
-	// Load References
-	ThrowBallMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/ThrowBallAnimMontage.ThrowBallAnimMontage'")));
-	ThrowBallMontageTPV = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/ThrowBallAnimMontageTPV.ThrowBallAnimMontageTPV'")));
-
 }
 
 bool AxBaseCharacter::GetPlayerIsThrowing_Implementation()
@@ -87,10 +83,10 @@ int32 AxBaseCharacter::DetachBall_Implementation(AxBallBase* Ball)
 	return 1;
 }
 
-int32 AxBaseCharacter::AttachBall_Implementation(AxBallBase* Ball)
+int32 AxBaseCharacter::AttachBall_Implementation()
 {
 
-	AttachBallToTPVMesh(Ball);
+	AttachBallToTPVMesh();
 	SpawnNewBallOnFPVMesh();
 
 	return 1;
@@ -100,6 +96,9 @@ int32 AxBaseCharacter::AttachBall_Implementation(AxBallBase* Ball)
 void AxBaseCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// VFX are not being replicated so load dynamic refs in client / server
+	LoadVFXDynamicRefs();
 
 	OnTakeAnyDamage.AddDynamic(this, &AxBaseCharacter::HandleTakeAnyDamage);
 }
@@ -128,7 +127,7 @@ void AxBaseCharacter::MoveRight(float Value)
 	AddMovementInput(RightVector, Value);
 }
 
-void AxBaseCharacter::AttachBallToTPVMesh(AxBallBase* Ball)
+void AxBaseCharacter::AttachBallToTPVMesh()
 {
 	bHasBall = true;
 
@@ -141,14 +140,40 @@ void AxBaseCharacter::AttachBallToTPVMesh(AxBallBase* Ball)
 	FAttachmentTransformRules TransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, true);
 	FTransform TPVSocketTransform = TPVSkeletalMesh->GetSocketTransform(SocketName, RTS_World);
 
-	/*Ball->SphereComp->SetOwnerNoSee(true);*/
-	Ball->AttachToComponent(TPVSkeletalMesh, TransformRules, SocketName);
+	TPVBall = SpawnBall(TPVSocketTransform);
+	TPVBall->MulticastSetOwnerNoSee();
 
-	TPVBall = Ball;
+	TPVBall->SphereComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	TPVBall->AttachToComponent(TPVSkeletalMesh, TransformRules, SocketName);
+	TPVBall->StartTimer();
 
 	/*Ball->SetActorTransform(TPVSocketTransform);*/
 }
 
+
+void AxBaseCharacter::TempChangeCollision(AxBallProjectileBase* BallProjectile)
+{
+	BallProjectile->AddCollision();
+}
+
+AxBallBase* AxBaseCharacter::SpawnBall(FTransform SpawnLocation)
+{
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = this;
+	SpawnParams.Instigator = this;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	
+	AxBallBase* Ball = GetWorld()->SpawnActor<AxBallBase>(AxBallBase::StaticClass(), SpawnLocation, SpawnParams);
+
+	return Ball;
+}
+
+void AxBaseCharacter::LoadVFXDynamicRefs()
+{
+	// Load References
+	ThrowBallMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/ThrowBallAnimMontage.ThrowBallAnimMontage'")));
+	ThrowBallMontageTPV = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/ThrowBallAnimMontageTPV.ThrowBallAnimMontageTPV'")));
+}
 
 void AxBaseCharacter::Turn(float Value)
 {
@@ -179,7 +204,7 @@ void AxBaseCharacter::ServerPlayTPVThrowBallAnim_Implementation()
 
 bool AxBaseCharacter::ServerPlayTPVThrowBallAnim_Validate()
 {
-	return IsValid(TPVBall);
+	return IsValid(TPVBall) && !TPVBall->bIsExploding;
 }
 
 void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraLocation, FVector CameraFowardVector)
@@ -192,17 +217,32 @@ void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraLocation, FVe
 	/*FTransform SocketTransform = GetMesh()->GetSocketTransform(SocketName, RTS_World);*/
 	FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(CameraLocation, TraceEnd);
 	FTransform ThrowTo = UKismetMathLibrary::MakeTransform(CameraLocation, LookAtRotation, FVector(1.0f, 1.0f, 1.0f));
-	
+
+
+	FTimerDelegate TimerDel;
+	FTimerHandle TimerHandle;
 
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = this;
 	SpawnParams.Instigator = this;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	AxBallBase* BallProjectile = GetWorld()->SpawnActor<AxBallBase>(AxBallBase::StaticClass(), ThrowTo, SpawnParams);
-	BallProjectile->Shoot(CameraFowardVector * 2000, 2000);
 
-	DestroyBalls();
+	AxBallProjectileBase* ProjectileBall = GetWorld()->SpawnActor<AxBallProjectileBase>(AxBallProjectileBase::StaticClass(), ThrowTo, SpawnParams);
+	/*ProjectileBall->AddCollision();*/
+	ProjectileBall->SphereComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	ProjectileBall->Shoot(CameraFowardVector * 2000, 2000);
+
+
+	TimerDel.BindUFunction(this, FName("TempChangeCollision"), ProjectileBall);
+	GetWorldTimerManager().SetTimer(TimerHandle, TimerDel, 0.04f, false);
+
+
+	FTimerHandle UnusedHandle;
+	GetWorldTimerManager().SetTimer(
+		UnusedHandle, this, &AxBaseCharacter::DestroyBalls, 0.2f, false);
+
+	/*DestroyBalls();*/
 
 	/*FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
@@ -381,7 +421,7 @@ void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraLocation, FVe
 
 bool AxBaseCharacter::ServerThrowBall_Validate(FVector CameraLocation, FVector CameraFowardVector)
 {
-	return IsValid(TPVBall);
+	return IsValid(TPVBall) && !TPVBall->bIsExploding;
 }
 
 void AxBaseCharacter::ServerSetPLayerIsThrowing_Implementation(bool bPlayerIsThrowing)
@@ -434,24 +474,26 @@ void AxBaseCharacter::SpawnNewBallOnFPVMesh()
 	FAttachmentTransformRules TransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, true);
 	FTransform FPVSocketTransform = SkeletalMeshComp->GetSocketTransform(SocketName, RTS_World);
 
-	FPVBall = GetWorld()->SpawnActor<AxBallBase>(AxBallBase::StaticClass(), FPVSocketTransform, spawnParams);
-	FPVBall->SphereComp->SetGenerateOverlapEvents(false);
+	FPVBall = SpawnBall(FPVSocketTransform);
 	FPVBall->SphereComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	FPVBall->SphereComp->SetSimulatePhysics(false);
-	FPVBall->SphereComp->SetOnlyOwnerSee(true);
 	FPVBall->SetReplicates(false);
+	FPVBall->SphereComp->SetOnlyOwnerSee(true);
 	FPVBall->SetReplicateMovement(false);
 	FPVBall->AttachToComponent(SkeletalMeshComp, TransformRules, SocketName);
-	FPVBall->SetOwner(this);
 }
 
 void AxBaseCharacter::DestroyBalls()
 {
+	bHasBall = false;
+
 	if (IsValid(FPVBall) && IsValid(TPVBall))
 	{
 		FPVBall->Destroy();
 		TPVBall->Destroy();
 	}
+
+	GetWorld()->GetTimerManager().ClearAllTimersForObject(this);
+
 }
 
 void AxBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

@@ -11,4 +11,5 @@
 #define TORSO						SurfaceType2
 #define ARMS						SurfaceType3
 #define LEGS						SurfaceType4
+#define FLOOR					    SurfaceType5
 

@@ -58,8 +58,8 @@ public:
 	virtual int32 DetachBall_Implementation(AxBallBase* Ball) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 AttachBall(AxBallBase* Ball);
-	virtual int32 AttachBall_Implementation(AxBallBase* Ball) override;
+		int32 AttachBall();
+	virtual int32 AttachBall_Implementation() override;
 
 	//Called from client, executed on server, withvalidation is required for this
 	UFUNCTION(Server, Reliable, WithValidation)
@@ -72,6 +72,7 @@ public:
 		void MulticastPlayTPVThrowAnimation();
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerPlayTPVThrowBallAnim();
+
 	
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
@@ -112,6 +113,16 @@ protected:
 
 private:
 	UFUNCTION()
-	void AttachBallToTPVMesh(AxBallBase* Ball);
+	void AttachBallToTPVMesh();
+
+	UFUNCTION()
+	void TempChangeCollision(AxBallProjectileBase* BallProjectile);
+
+	UFUNCTION()
+	AxBallBase* SpawnBall(FTransform SpawnLocation);
+
+	UFUNCTION()
+	void LoadVFXDynamicRefs();
+
 
 };

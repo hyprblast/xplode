@@ -7,45 +7,32 @@
 #include "Components/PrimitiveComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
-#include <GameFramework/ProjectileMovementComponent.h>
+#include "GameFramework/ProjectileMovementComponent.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
+#include "Chaos/ChaosEngineInterface.h"
 
 
 // Sets default values
 AxBallBase::AxBallBase()
 {
 	PrimaryActorTick.bCanEverTick = false;
-	SphereStaticMeshObject = Cast<UStaticMesh>(StaticLoadObject(UStaticMesh::StaticClass(), NULL, TEXT("StaticMesh'/Game/_Main/StaticMeshes/xprotoball.xprotoball'")));
-	ExplosionParticle = Cast<UParticleSystem>(StaticLoadObject(UParticleSystem::StaticClass(), NULL, TEXT("ParticleSystem'/Game/BallisticsVFX/Particles/Explosive/Explosion_GrenadeLauncher_1.Explosion_GrenadeLauncher_1'")));
-	ExplosionSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/Battle_Royale_Game/Cues/Explosions/Explosion_Grenade_Close_2_Bomb_Explode_Fiery_Loud_Cue.Explosion_Grenade_Close_2_Bomb_Explode_Fiery_Loud_Cue'")));
 
+	SphereComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Sphere"));
+	SphereComp->SetCollisionObjectType(XBALLOBJECT_CHANNEL);
+	SphereComp->SetCollisionProfileName(TEXT("xBallCollision"));
+	SphereComp->SetGenerateOverlapEvents(false);
+	SphereComp->CastShadow = false;
+	/*SphereComp->SetNotifyRigidBodyCollision(true);*/
 
-	if (IsValid(SphereStaticMeshObject))
-	{
-		ProjectileMovementComp = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
-		/*ProjectileMovementComp->Velocity = FVector(2000, 0, 0);
-		ProjectileMovementComp->HomingAccelerationMagnitude = 2000;
-		ProjectileMovementComp->bRotationFollowsVelocity = true;*/
-		/*ProjectileMovementComp->ProjectileGravityScale = 0;*/
-		ProjectileMovementComp->SetIsReplicated(true);
-		
-		
-		SphereComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Sphere"));
-		SphereComp->SetCollisionObjectType(XBALLOBJECT_CHANNEL);
-		SphereComp->SetCollisionProfileName(TEXT("xBallCollision"));
-		SphereComp->SetGenerateOverlapEvents(true);
-		SphereComp->SetStaticMesh(SphereStaticMeshObject);
-		SphereComp->SetupAttachment(RootComponent);
-		SphereComp->SetSimulatePhysics(false);
-		SphereComp->SetIsReplicated(true);
-		SphereComp->CanCharacterStepUp(false);
-		
-		/*SphereComp->SetUseCCD(true);*/
-	/*	SphereComp->OnComponentBeginOverlap.AddDynamic(this, &AxBallBase::CallOnOverlap);*/
-		SetRootComponent(SphereComp);
+	SphereComp->SetupAttachment(RootComponent);
+	SphereComp->SetIsReplicated(true);
+	SphereComp->CanCharacterStepUp(false);
 
-		bReplicates = true;
-		SetReplicateMovement(true);
-	}
+	SetRootComponent(SphereComp);
+
+	bReplicates = true;
+	SetReplicateMovement(true);
+	
 
 }
 
@@ -59,16 +46,11 @@ AxBallBase::AxBallBase()
 //	UE_LOG(LogTemp, Log, TEXT("Other Actor is: %s"), *OtherComp->GetFullName());
 //}
 
-//void AxBallProjectileBase::OnCompHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
-//{
-//
-//}
 
 void AxBallBase::NotifyActorBeginOverlap(AActor* OtherActor)
 {
 	Super::NotifyActorBeginOverlap(OtherActor);
-
-
+	
 	// Attach ball on server version of the player so that it can be replicated
 	if (HasAuthority() &&
 		OtherActor->ActorHasTag(FName("Player")) &&
@@ -76,48 +58,25 @@ void AxBallBase::NotifyActorBeginOverlap(AActor* OtherActor)
 		!IxBaseCharacterInterface::Execute_GetPlayerHasBall(OtherActor))
 	{
 		
-		bIsExplodeMode = true;
-		StartTimer();
-		
-		/*SphereComp->WakeAllRigidBodies();
-		SphereComp->SetOwnerNoSee(true);*/
-		/*SetOwner(OtherActor);*/
-
-		SetOwner(OtherActor);
-		MulticastSetOwnerNoSee();
-
-
-		IxBaseCharacterInterface::Execute_AttachBall(OtherActor, this);
-
-		if (LastPlayerOwner && LastPlayerOwner != nullptr)
-		{
-			IxBaseCharacterInterface::Execute_DetachBall(LastPlayerOwner, this);
-		}
-		/*else
-		{
-			UE_LOG(LogTemp, Log, TEXT("Last Player Owner is null"));
-		}*/
-
-		LastPlayerOwner = OtherActor;
+		IxBaseCharacterInterface::Execute_AttachBall(OtherActor);
+		Destroy();
 
 	}
-}
-
-void AxBallBase::Shoot(FVector Velocity, float AccelerationMag)
-{
-	ProjectileMovementComp->Velocity = Velocity;
-	/*ProjectileMovementComp->HomingAccelerationMagnitude = 50000;*/
-	ProjectileMovementComp->bRotationFollowsVelocity = true;
-	ProjectileMovementComp->bShouldBounce = true;
-	ProjectileMovementComp->Bounciness = 0.3f;
-	/*ProjectileMovementComp->MaxSpeed = 2000;*/
-	/*ProjectileMovementComp->ProjectileGravityScale = 0;*/
 }
 
 // Called when the game starts or when spawned
 void AxBallBase::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// VFX are not being replicated so load refs in client / server
+	LoadVFXDynamicRefs();
+
+	// SphereComponent is replicated so just set the staticmesh on server
+	if (HasAuthority())
+	{
+		SetStaticMesh();
+	}
 }
 
 void AxBallBase::MulticastExplode_Implementation()
@@ -152,6 +111,30 @@ void AxBallBase::OnTimerElapsed()
 	}
 }
 
+void AxBallBase::RestoreCollision()
+{
+	SphereComp->SetCollisionObjectType(XBALLOBJECT_CHANNEL);
+	SphereComp->SetCollisionProfileName(TEXT("xBallCollision"));
+	bIsChangingCollision = false;
+	GetWorld()->GetTimerManager().ClearTimer(RestoreCollisionTimerHandle);
+}
+
+void AxBallBase::LoadVFXDynamicRefs()
+{
+	ExplosionParticle = Cast<UParticleSystem>(StaticLoadObject(UParticleSystem::StaticClass(), NULL, TEXT("ParticleSystem'/Game/BallisticsVFX/Particles/Explosive/Explosion_GrenadeLauncher_1.Explosion_GrenadeLauncher_1'")));
+	ExplosionSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/Battle_Royale_Game/Cues/Explosions/Explosion_Grenade_Close_2_Bomb_Explode_Fiery_Loud_Cue.Explosion_Grenade_Close_2_Bomb_Explode_Fiery_Loud_Cue'")));
+}
+
+void AxBallBase::SetStaticMesh()
+{
+	SphereStaticMeshObject = Cast<UStaticMesh>(StaticLoadObject(UStaticMesh::StaticClass(), NULL, TEXT("StaticMesh'/Game/AdvancedWeaponPack/Weapons/Meshes/FragGrenade/StaticMeshes/SM_FragGrenade_Grenade.SM_FragGrenade_Grenade'")));
+	if (IsValid(SphereStaticMeshObject))
+	{
+		SphereComp->SetStaticMesh(SphereStaticMeshObject);
+	}
+}
+
+
 void AxBallBase::ClearTimer()
 {
 	GetWorld()->GetTimerManager().ClearTimer(ExplodeLevelIncrementTimerHandle);
@@ -159,8 +142,14 @@ void AxBallBase::ClearTimer()
 
 void AxBallBase::StartTimer()
 {
+	bIsExplodeMode = true;
 	GetWorldTimerManager().SetTimer(
 		ExplodeLevelIncrementTimerHandle, this, &AxBallBase::OnTimerElapsed, 1.0f, true);
+}
+
+void AxBallBase::AddOverlap()
+{
+	SphereComp->SetGenerateOverlapEvents(true);
 }
 
 void AxBallBase::SelfDestroy()
@@ -181,5 +170,6 @@ void AxBallBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 
 	DOREPLIFETIME(AxBallBase, bIsExplodeMode);
 	DOREPLIFETIME(AxBallBase, ExplodeLevel);
+	DOREPLIFETIME(AxBallBase, bIsExploding);
 }
 

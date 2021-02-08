@@ -22,9 +22,17 @@ public:
 	AxBallBase();
 	virtual void NotifyActorBeginOverlap(AActor* OtherActor) override;
 
-	UFUNCTION()
-	void Shoot(FVector Velocity, float AccelerationMag);
+	/*UFUNCTION()
+		void Shoot(FVector Velocity, float AccelerationMag);*/
 
+	UFUNCTION()
+		void StartTimer();
+
+	UFUNCTION()
+	void AddOverlap();
+	
+	UFUNCTION(NetMulticast, Reliable)
+		void MulticastSetOwnerNoSee();
 
 	// Called every frame
 	/*virtual void Tick(float DeltaTime) override;*/
@@ -35,8 +43,8 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 		UStaticMeshComponent* SphereComp;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-		UProjectileMovementComponent* ProjectileMovementComp;
+	/*UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+		UProjectileMovementComponent* ProjectileMovementComp;*/
 
 	UPROPERTY()
 		AActor* LastPlayerOwner;
@@ -46,6 +54,9 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Default", Replicated)
 		bool bIsExplodeMode;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Default", Replicated)
+		bool bIsExploding;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Default", Replicated)
 		float ExplodeLevel;
@@ -71,31 +82,39 @@ protected:
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastExplode();
 
-	UFUNCTION(NetMulticast, Reliable)
-		void MulticastSetOwnerNoSee();
-	
+
+
 
 private:
 	// Note to self: This timer needs to be set on server
 	UPROPERTY()
 		FTimerHandle ExplodeLevelIncrementTimerHandle;
+	UPROPERTY()
+		FTimerHandle RestoreCollisionTimerHandle;
 
 	UPROPERTY()
 		float ExplodesAt = 5;
 
-	UPROPERTY()
-		bool bIsExploding;
-
 	UFUNCTION()
 		void ClearTimer();
-
-	UFUNCTION()
-		void StartTimer();
 
 	UFUNCTION()
 		void SelfDestroy();
 
 	UFUNCTION()
 		void OnTimerElapsed();
+
+	UFUNCTION()
+		void RestoreCollision();
+
+	UPROPERTY()
+		bool bIsChangingCollision;
+
+	UFUNCTION()
+	void LoadVFXDynamicRefs();
+	
+	UFUNCTION()
+		void SetStaticMesh();
+
 
 };
