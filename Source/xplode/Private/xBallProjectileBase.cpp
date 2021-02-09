@@ -90,7 +90,7 @@ void AxBallProjectileBase::BeginPlay()
 
 void AxBallProjectileBase::SetStaticMesh()
 {
-	SphereStaticMeshObject = Cast<UStaticMesh>(StaticLoadObject(UStaticMesh::StaticClass(), NULL, TEXT("StaticMesh'/Game/AdvancedWeaponPack/Weapons/Meshes/FragGrenade/StaticMeshes/SM_FragGrenade_Grenade.SM_FragGrenade_Grenade'")));
+	SphereStaticMeshObject = Cast<UStaticMesh>(StaticLoadObject(UStaticMesh::StaticClass(), NULL, TEXT("StaticMesh'/Game/_Main/StaticMeshes/xprotoball.xprotoball'")));
 	if (IsValid(SphereStaticMeshObject))
 	{
 		SphereComp->SetStaticMesh(SphereStaticMeshObject);

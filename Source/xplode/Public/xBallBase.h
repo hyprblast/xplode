@@ -10,6 +10,7 @@
 #include "Sound/SoundCue.h"
 #include "Particles/ParticleSystem.h"
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "Components/AudioComponent.h"
 #include "xBallBase.generated.h"
 
 UCLASS()
@@ -33,6 +34,9 @@ public:
 	
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastSetOwnerNoSee();
+
+	UFUNCTION(Client, Reliable)
+		void ClientStopWarn();
 
 	// Called every frame
 	/*virtual void Tick(float DeltaTime) override;*/
@@ -67,11 +71,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
 		USoundCue* ExplosionSoundFx;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
+		USoundCue* WarningSoundFx;
+
 	UPROPERTY()
 		float Damage = 28.0f;
 
 	UPROPERTY()
 		UStaticMesh* SphereStaticMeshObject;
+
+	UPROPERTY()
+		UAudioComponent* AudioComponent;
 
 	/*UFUNCTION()
 	void CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, class AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);*/
@@ -81,8 +91,9 @@ protected:
 
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastExplode();
-
-
+	
+	UFUNCTION(Client, Reliable)
+		void ClientWarn();
 
 
 private:

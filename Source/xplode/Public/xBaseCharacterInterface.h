@@ -38,4 +38,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 ThrowBall();
 	
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 PickupBall(AxBallBase* Ball);
+	
 };

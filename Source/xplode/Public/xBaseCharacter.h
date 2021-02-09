@@ -50,6 +50,10 @@ public:
 	virtual int32 ThrowBall_Implementation() override; // This is the declaration of the implementation
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 PickupBall(AxBallBase* Ball);  // This is the prototype declared in the interface
+	virtual int32 PickupBall_Implementation(AxBallBase* Ball) override; // This is the declaration of the implementation
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		float GetInputAxisYawValue();  
 	virtual float GetInputAxisYawValue_Implementation() override; 
 
@@ -67,12 +71,14 @@ public:
 	//Called from client, executed on server, withvalidation is required for this
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerSetPLayerIsThrowing(bool bPlayerIsThrowing);
-	//Called from client, executed on server, withvalidation is required for this
+	//Called from server, executed on each copies of the actor, including server
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastPlayTPVThrowAnimation();
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerPlayTPVThrowBallAnim();
-
+	UFUNCTION(NetMulticast, Reliable)
+		void MulticastPlayTPVPickupAnimation();
+	
 	
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
@@ -81,8 +87,9 @@ public:
 	UFUNCTION()
 		void SpawnNewBallOnFPVMesh();
 	
-	UFUNCTION()
-		void DestroyBalls();
+	UFUNCTION(NetMulticast, Reliable)
+		void MulticastDestroyBalls();
+
 
 
 protected:
@@ -97,8 +104,6 @@ protected:
 	UFUNCTION()
 		void PlayThrowBallAnim();
 	UFUNCTION()
-		void PlayCatchCenterBallAnim();
-	UFUNCTION()
 		void HandleTakeAnyDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser);
 	UPROPERTY(BlueprintReadOnly, Category = "Default")
 		float InputAxisYawValue = 0;
@@ -110,6 +115,10 @@ protected:
 		UAnimMontage* ThrowBallMontage;
 	UPROPERTY(EditAnywhere, Category = "Animation")
 		UAnimMontage* ThrowBallMontageTPV;
+	UPROPERTY(EditAnywhere, Category = "Animation")
+		UAnimMontage* PickupBallMontage;
+	/*UPROPERTY(EditAnywhere, Category = "Animation")
+		UAnimMontage* PickupBallMontageTPV;*/
 
 private:
 	UFUNCTION()
@@ -123,6 +132,12 @@ private:
 
 	UFUNCTION()
 	void LoadVFXDynamicRefs();
+
+	UFUNCTION()
+	void DestroyBalls();
+
+	UPROPERTY()
+		AxBallBase* TempBall;
 
 
 };

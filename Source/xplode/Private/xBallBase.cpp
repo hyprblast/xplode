@@ -57,11 +57,12 @@ void AxBallBase::NotifyActorBeginOverlap(AActor* OtherActor)
 		OtherActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()) &&
 		!IxBaseCharacterInterface::Execute_GetPlayerHasBall(OtherActor))
 	{
-		
-		IxBaseCharacterInterface::Execute_AttachBall(OtherActor);
-		Destroy();
+		IxBaseCharacterInterface::Execute_PickupBall(OtherActor, this);
+		//IxBaseCharacterInterface::Execute_AttachBall(OtherActor);
+		//Destroy();
 
 	}
+
 }
 
 // Called when the game starts or when spawned
@@ -91,6 +92,19 @@ void AxBallBase::MulticastExplode_Implementation()
 }
 
 
+void AxBallBase::ClientWarn_Implementation()
+{
+	AudioComponent = UGameplayStatics::SpawnSoundAtLocation(GetWorld(), WarningSoundFx, GetActorLocation());
+}
+
+void AxBallBase::ClientStopWarn_Implementation()
+{
+	if (IsValid(AudioComponent))
+	{
+		AudioComponent->SetActive(false);
+	}
+}
+
 void AxBallBase::MulticastSetOwnerNoSee_Implementation()
 {
 	SphereComp->SetOwnerNoSee(true);
@@ -100,10 +114,15 @@ void AxBallBase::OnTimerElapsed()
 {
 	ExplodeLevel += 1;
 
+	if (ExplodeLevel == ExplodesAt -2)
+	{
+		ClientWarn();
+	}
+
 	if (ExplodeLevel >= ExplodesAt && !bIsExploding)
 	{
 		bIsExploding = true;
-
+		ClientStopWarn();
 		// Clear timer
 		ClearTimer();
 		// Explode
@@ -123,11 +142,12 @@ void AxBallBase::LoadVFXDynamicRefs()
 {
 	ExplosionParticle = Cast<UParticleSystem>(StaticLoadObject(UParticleSystem::StaticClass(), NULL, TEXT("ParticleSystem'/Game/BallisticsVFX/Particles/Explosive/Explosion_GrenadeLauncher_1.Explosion_GrenadeLauncher_1'")));
 	ExplosionSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/Battle_Royale_Game/Cues/Explosions/Explosion_Grenade_Close_2_Bomb_Explode_Fiery_Loud_Cue.Explosion_Grenade_Close_2_Bomb_Explode_Fiery_Loud_Cue'")));
+	WarningSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/SciFiWeaponsCyberpunkArsenal/cues/Support_Material/Targeting/BEEP_Targeting_Loop_04_Cue.BEEP_Targeting_Loop_04_Cue'")));
 }
 
 void AxBallBase::SetStaticMesh()
 {
-	SphereStaticMeshObject = Cast<UStaticMesh>(StaticLoadObject(UStaticMesh::StaticClass(), NULL, TEXT("StaticMesh'/Game/AdvancedWeaponPack/Weapons/Meshes/FragGrenade/StaticMeshes/SM_FragGrenade_Grenade.SM_FragGrenade_Grenade'")));
+	SphereStaticMeshObject = Cast<UStaticMesh>(StaticLoadObject(UStaticMesh::StaticClass(), NULL, TEXT("StaticMesh'/Game/_Main/StaticMeshes/xprotoball.xprotoball'")));
 	if (IsValid(SphereStaticMeshObject))
 	{
 		SphereComp->SetStaticMesh(SphereStaticMeshObject);

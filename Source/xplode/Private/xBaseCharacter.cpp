@@ -71,6 +71,14 @@ int32 AxBaseCharacter::ThrowBall_Implementation()
 	return 1;
 }
 
+int32 AxBaseCharacter::PickupBall_Implementation(AxBallBase* Ball)
+{
+	TempBall = Ball;
+	MulticastPlayTPVPickupAnimation();
+	return 1;
+
+}
+
 float AxBaseCharacter::GetInputAxisYawValue_Implementation()
 {
 	return InputAxisYawValue;
@@ -85,9 +93,19 @@ int32 AxBaseCharacter::DetachBall_Implementation(AxBallBase* Ball)
 
 int32 AxBaseCharacter::AttachBall_Implementation()
 {
-
-	AttachBallToTPVMesh();
-	SpawnNewBallOnFPVMesh();
+	if (HasAuthority())
+	{
+		if (IsValid(TempBall))
+		{
+			TempBall->Destroy();
+		}
+		AttachBallToTPVMesh();
+		
+	} 
+	else if (IsLocallyControlled())
+	{
+		SpawnNewBallOnFPVMesh();
+	}
 
 	return 1;
 }
@@ -162,7 +180,7 @@ AxBallBase* AxBaseCharacter::SpawnBall(FTransform SpawnLocation)
 	SpawnParams.Owner = this;
 	SpawnParams.Instigator = this;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	
+
 	AxBallBase* Ball = GetWorld()->SpawnActor<AxBallBase>(AxBallBase::StaticClass(), SpawnLocation, SpawnParams);
 
 	return Ball;
@@ -173,6 +191,8 @@ void AxBaseCharacter::LoadVFXDynamicRefs()
 	// Load References
 	ThrowBallMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/ThrowBallAnimMontage.ThrowBallAnimMontage'")));
 	ThrowBallMontageTPV = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/ThrowBallAnimMontageTPV.ThrowBallAnimMontageTPV'")));
+	PickupBallMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/PickUpAnimMontage.PickUpAnimMontage'")));
+	//PickupBallMontageTPV = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/PickUpAnimMontageTPV.PickUpAnimMontageTPV'")));
 }
 
 void AxBaseCharacter::Turn(float Value)
@@ -191,10 +211,6 @@ void AxBaseCharacter::PlayThrowBallAnim()
 	}
 }
 
-void AxBaseCharacter::PlayCatchCenterBallAnim()
-{
-
-}
 
 void AxBaseCharacter::ServerPlayTPVThrowBallAnim_Implementation()
 {
@@ -207,9 +223,26 @@ bool AxBaseCharacter::ServerPlayTPVThrowBallAnim_Validate()
 	return IsValid(TPVBall) && !TPVBall->bIsExploding;
 }
 
+void AxBaseCharacter::MulticastPlayTPVPickupAnimation_Implementation()
+{
+	if (IsValid(PickupBallMontage))
+	{
+		
+		if (IsLocallyControlled())
+		{
+			SkeletalMeshComp->GetAnimInstance()->Montage_Play(PickupBallMontage);
+		}
+		else
+		{
+			GetMesh()->GetAnimInstance()->Montage_Play(PickupBallMontage);
+		}
+	}
+}
+
+
 void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraLocation, FVector CameraFowardVector)
 {
-	
+
 	FHitResult Hit;
 	/*FName SocketName = TEXT("hand_socket");*/
 	FVector TraceStart = CameraLocation;
@@ -458,8 +491,6 @@ void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AxBaseCharacter::Jump);
 	PlayerInputComponent->BindAction("ThrowBall", IE_Pressed, this, &AxBaseCharacter::PlayThrowBallAnim);
-
-	PlayerInputComponent->BindAction("CatchCenter", IE_Pressed, this, &AxBaseCharacter::PlayCatchCenterBallAnim);
 }
 
 
@@ -482,18 +513,24 @@ void AxBaseCharacter::SpawnNewBallOnFPVMesh()
 	FPVBall->AttachToComponent(SkeletalMeshComp, TransformRules, SocketName);
 }
 
+void AxBaseCharacter::MulticastDestroyBalls_Implementation()
+{
+	if (IsValid(FPVBall))
+	{
+		FPVBall->Destroy();
+	}
+	if (IsValid(TPVBall))
+	{
+		TPVBall->ClientStopWarn();
+		TPVBall->Destroy();
+	}
+}
+
 void AxBaseCharacter::DestroyBalls()
 {
 	bHasBall = false;
-
-	if (IsValid(FPVBall) && IsValid(TPVBall))
-	{
-		FPVBall->Destroy();
-		TPVBall->Destroy();
-	}
-
 	GetWorld()->GetTimerManager().ClearAllTimersForObject(this);
-
+	MulticastDestroyBalls();
 }
 
 void AxBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
