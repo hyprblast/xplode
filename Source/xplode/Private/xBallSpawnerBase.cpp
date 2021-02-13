@@ -43,7 +43,7 @@ void AxBallSpawnerBase::SpawnBall()
 
 		AxBallProjectileBase* BallProjectile = GetWorld()->SpawnActor<AxBallProjectileBase>(AxBallProjectileBase::StaticClass(), SpawnWhere, SpawnParams);
 		BallProjectile->AddCollision();
-		BallProjectile->Shoot(FVector(0, -100, 800), 2000);
+		BallProjectile->Shoot(FVector(0, -100, 800));
 	}
 	
 }

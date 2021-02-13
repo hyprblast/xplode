@@ -14,6 +14,7 @@
 #include "Chaos/ChaosEngineInterface.h"
 #include "Particles/ParticleSystem.h"
 #include "Sound/SoundCue.h"
+#include "Components/AudioComponent.h"
 #include "xBallProjectileBase.generated.h"
 
 UCLASS()
@@ -31,8 +32,14 @@ public:
 	UFUNCTION()
 		void AddCollision();
 
+	UFUNCTION(NetMulticast, Reliable)
+		void MulticastPlayCoolDownSound();
+
 	UFUNCTION()
-		void Shoot(FVector Velocity, float AccelerationMag);
+		void Shoot(FVector Velocity);
+
+	UPROPERTY()
+	bool bCoolDownStarted;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 		UStaticMeshComponent* SphereComp;
@@ -42,6 +49,13 @@ public:
 	
 	UPROPERTY()
 		UStaticMesh* SphereStaticMeshObject;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
+		USoundCue* CoolDownSoundFx;
+
+	
+
+	
 
 	////	// Called every frame
 	////	virtual void Tick(float DeltaTime) override;
@@ -56,16 +70,25 @@ protected:
 
 private:
 	UPROPERTY()
-		FTimerHandle SpawnBallTimerHandle;
-		
-		UPROPERTY()
-		bool bMarkedForDestroy;
+		FTimerHandle CoolDownTimerHandle;
+	
+	UPROPERTY()
+		bool bNeedsCoolDown;
+
+	UPROPERTY()
+		UAudioComponent* AudioComponent;
 
 	UFUNCTION()
-		void DestroyAndSpawnBall();
+		AxBallBase* SpawnBall(bool bAddOverlap, AActor* OtherActor);
 
 	UFUNCTION()
 		void SetStaticMesh();
+
+	UFUNCTION()
+		void StopCoolDown();
+
+		UFUNCTION()
+		void LoadVFXDynamicRefs();
 
 
 	/*UFUNCTION()

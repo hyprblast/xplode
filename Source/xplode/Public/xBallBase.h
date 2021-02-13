@@ -31,6 +31,9 @@ public:
 
 	UFUNCTION()
 	void AddOverlap();
+
+	UFUNCTION(NetMulticast, Reliable)
+		void MulticastExplode();
 	
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastSetOwnerNoSee();
@@ -88,9 +91,6 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-
-	UFUNCTION(NetMulticast, Reliable)
-		void MulticastExplode();
 	
 	UFUNCTION(Client, Reliable)
 		void ClientWarn();
@@ -100,8 +100,6 @@ private:
 	// Note to self: This timer needs to be set on server
 	UPROPERTY()
 		FTimerHandle ExplodeLevelIncrementTimerHandle;
-	UPROPERTY()
-		FTimerHandle RestoreCollisionTimerHandle;
 
 	UPROPERTY()
 		float ExplodesAt = 5;
@@ -114,12 +112,6 @@ private:
 
 	UFUNCTION()
 		void OnTimerElapsed();
-
-	UFUNCTION()
-		void RestoreCollision();
-
-	UPROPERTY()
-		bool bIsChangingCollision;
 
 	UFUNCTION()
 	void LoadVFXDynamicRefs();

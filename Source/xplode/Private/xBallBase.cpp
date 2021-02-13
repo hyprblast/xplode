@@ -24,6 +24,7 @@ AxBallBase::AxBallBase()
 	SphereComp->CastShadow = false;
 	/*SphereComp->SetNotifyRigidBodyCollision(true);*/
 
+
 	SphereComp->SetupAttachment(RootComponent);
 	SphereComp->SetIsReplicated(true);
 	SphereComp->CanCharacterStepUp(false);
@@ -57,7 +58,8 @@ void AxBallBase::NotifyActorBeginOverlap(AActor* OtherActor)
 		OtherActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()) &&
 		!IxBaseCharacterInterface::Execute_GetPlayerHasBall(OtherActor))
 	{
-		IxBaseCharacterInterface::Execute_PickupBall(OtherActor, this);
+		IxBaseCharacterInterface::Execute_PickupBall(OtherActor);
+		Destroy();
 		//IxBaseCharacterInterface::Execute_AttachBall(OtherActor);
 		//Destroy();
 
@@ -82,6 +84,7 @@ void AxBallBase::BeginPlay()
 
 void AxBallBase::MulticastExplode_Implementation()
 {
+	
 	UGameplayStatics::PlaySoundAtLocation(GetWorld(), ExplosionSoundFx, GetActorLocation());
 	UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ExplosionParticle, GetActorLocation(), FRotator(0, 0, 0));
 
@@ -125,17 +128,9 @@ void AxBallBase::OnTimerElapsed()
 		ClientStopWarn();
 		// Clear timer
 		ClearTimer();
-		// Explode
+		//// Explode
 		MulticastExplode();
 	}
-}
-
-void AxBallBase::RestoreCollision()
-{
-	SphereComp->SetCollisionObjectType(XBALLOBJECT_CHANNEL);
-	SphereComp->SetCollisionProfileName(TEXT("xBallCollision"));
-	bIsChangingCollision = false;
-	GetWorld()->GetTimerManager().ClearTimer(RestoreCollisionTimerHandle);
 }
 
 void AxBallBase::LoadVFXDynamicRefs()
@@ -147,7 +142,7 @@ void AxBallBase::LoadVFXDynamicRefs()
 
 void AxBallBase::SetStaticMesh()
 {
-	SphereStaticMeshObject = Cast<UStaticMesh>(StaticLoadObject(UStaticMesh::StaticClass(), NULL, TEXT("StaticMesh'/Game/_Main/StaticMeshes/xprotoball.xprotoball'")));
+	SphereStaticMeshObject = Cast<UStaticMesh>(StaticLoadObject(UStaticMesh::StaticClass(), NULL, TEXT("StaticMesh'/Game/_Main/StaticMeshes/Orb/xOrb.xOrb'")));
 	if (IsValid(SphereStaticMeshObject))
 	{
 		SphereComp->SetStaticMesh(SphereStaticMeshObject);
@@ -174,7 +169,9 @@ void AxBallBase::AddOverlap()
 
 void AxBallBase::SelfDestroy()
 {
+	GetOwner()->Destroy();
 	Destroy();
+	
 }
 
 //Called every frame

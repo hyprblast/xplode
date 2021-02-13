@@ -8,6 +8,8 @@
 #include "xBaseCharacterInterface.h"
 #include "GameFramework/DamageType.h"
 #include "Animation/AnimMontage.h"
+#include "Components/AudioComponent.h"
+#include "Sound/SoundCue.h"
 #include "xBaseCharacter.generated.h"
 
 class UCameraComponent;
@@ -21,6 +23,21 @@ public:
 	// Sets default values for this character's properties
 	AxBaseCharacter();
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Defaults", Replicated)
+		float ThrowPower = 0;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Defaults", Replicated)
+		float MaxThrowPower = 2000;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Defaults", Replicated)
+		float Health = 100;
+
+	UPROPERTY(Replicated)
+		bool bIsAddingThrowPower;
+
+	UPROPERTY()
+		bool bIsCatchMode;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 		UCameraComponent* CameraComp;
 
@@ -33,6 +50,12 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
 		bool bIsThrowing;
 
+	UPROPERTY()
+		UAudioComponent* AudioComponent;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
+		USoundCue* ThrowPowerIncreaseSoundFx;
+
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerIsThrowing();  // This is the prototype declared in the interface
 	virtual bool GetPlayerIsThrowing_Implementation() override; // This is the declaration of the implementation
@@ -40,6 +63,10 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerHasBall();  // This is the prototype declared in the interface
 	virtual bool GetPlayerHasBall_Implementation() override; // This is the declaration of the implementation
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerIsInCatchMode();  // This is the prototype declared in the interface
+	virtual bool GetPlayerIsInCatchMode_Implementation() override; // This is the declaration of the implementation
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SetPlayerIsThrowing(bool bPlayerIsThrowing);  // This is the prototype declared in the interface
@@ -50,8 +77,8 @@ public:
 	virtual int32 ThrowBall_Implementation() override; // This is the declaration of the implementation
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 PickupBall(AxBallBase* Ball);  // This is the prototype declared in the interface
-	virtual int32 PickupBall_Implementation(AxBallBase* Ball) override; // This is the declaration of the implementation
+		int32 PickupBall();  // This is the prototype declared in the interface
+	virtual int32 PickupBall_Implementation() override; // This is the declaration of the implementation
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		float GetInputAxisYawValue();  
@@ -79,10 +106,12 @@ public:
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastPlayTPVPickupAnimation();
 	
+	UFUNCTION()
+	void IncreaseThrowPower();
 	
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	//virtual void Tick(float DeltaTime) override;
+	virtual void Tick(float DeltaTime) override;
 
 	UFUNCTION()
 		void SpawnNewBallOnFPVMesh();
@@ -103,6 +132,12 @@ protected:
 		void Turn(float Value);
 	UFUNCTION()
 		void PlayThrowBallAnim();
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerSetCatchMode();
+	UFUNCTION()
+		void UnSetCatchMode();
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerIncreaseThrowPower();
 	UFUNCTION()
 		void HandleTakeAnyDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser);
 	UPROPERTY(BlueprintReadOnly, Category = "Default")
@@ -123,6 +158,8 @@ protected:
 private:
 	UFUNCTION()
 	void AttachBallToTPVMesh();
+	UPROPERTY()
+		FTimerHandle CatchModeTimerHandle;
 
 	UFUNCTION()
 	void TempChangeCollision(AxBallProjectileBase* BallProjectile);
@@ -135,9 +172,4 @@ private:
 
 	UFUNCTION()
 	void DestroyBalls();
-
-	UPROPERTY()
-		AxBallBase* TempBall;
-
-
 };

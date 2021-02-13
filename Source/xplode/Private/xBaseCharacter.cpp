@@ -20,21 +20,29 @@
 #include "Engine/World.h"
 #include "xBallProjectileBase.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 
 // Sets default values
 AxBaseCharacter::AxBaseCharacter()
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 
 
 	UCapsuleComponent* CapsuleComp = GetCapsuleComponent();
+	CapsuleComp->CanCharacterStepUp(false);
+
+	//CapsuleComp->SetWalkableSlopeOverride()
+	/*CapsuleComp->SetCollisionProfileName(TEXT("Spectator"));*/
 
 	/*CapsuleComp->SetGenerateOverlapEvents(false);*/
-	/*GetMesh()->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
-	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);*/
+	USkeletalMeshComponent* TPVMesh = GetMesh();
 
+	TPVMesh->SetCollisionObjectType(XBALLNOCOLLISIONOBJECT_CHANNEL);
+	TPVMesh->SetCollisionProfileName(TEXT("xBalllMeshNoCollision"));
+	TPVMesh->CanCharacterStepUp(false);
 
 	CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	CameraComp->SetWorldLocation(FVector(0, 0, 70.0f));
@@ -42,7 +50,20 @@ AxBaseCharacter::AxBaseCharacter()
 	CameraComp->SetupAttachment(CapsuleComp);
 
 	SkeletalMeshComp = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FPArms"));
+	SkeletalMeshComp->CanCharacterStepUp(false);
 	SkeletalMeshComp->SetupAttachment(CameraComp);
+
+
+	SkeletalMeshComp->SetCollisionObjectType(XBALLNOCOLLISIONOBJECT_CHANNEL);
+	SkeletalMeshComp->SetCollisionProfileName(TEXT("xBalllMeshNoCollision"));
+	SkeletalMeshComp->CanCharacterStepUp(false);
+
+
+	/*GetCharacterMovement()->PushForceFactor =0;
+	GetCharacterMovement()->InitialPushForceFactor = 0;
+	GetCharacterMovement()->MaxTouchForce = 0;
+	GetCharacterMovement()->RepulsionForce = 0;
+	GetCapsuleComponent()->SetSimulatePhysics(false);*/
 
 	Tags.Add(FName("Player"));
 
@@ -59,6 +80,11 @@ bool AxBaseCharacter::GetPlayerHasBall_Implementation()
 }
 
 
+bool AxBaseCharacter::GetPlayerIsInCatchMode_Implementation()
+{
+	return bIsCatchMode;
+}
+
 int32 AxBaseCharacter::SetPlayerIsThrowing_Implementation(bool bPlayerIsThrowing)
 {
 	ServerSetPLayerIsThrowing(bPlayerIsThrowing);
@@ -71,12 +97,10 @@ int32 AxBaseCharacter::ThrowBall_Implementation()
 	return 1;
 }
 
-int32 AxBaseCharacter::PickupBall_Implementation(AxBallBase* Ball)
+int32 AxBaseCharacter::PickupBall_Implementation()
 {
-	TempBall = Ball;
 	MulticastPlayTPVPickupAnimation();
 	return 1;
-
 }
 
 float AxBaseCharacter::GetInputAxisYawValue_Implementation()
@@ -95,13 +119,8 @@ int32 AxBaseCharacter::AttachBall_Implementation()
 {
 	if (HasAuthority())
 	{
-		if (IsValid(TempBall))
-		{
-			TempBall->Destroy();
-		}
 		AttachBallToTPVMesh();
-		
-	} 
+	}
 	else if (IsLocallyControlled())
 	{
 		SpawnNewBallOnFPVMesh();
@@ -115,6 +134,8 @@ void AxBaseCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
+	
+
 	// VFX are not being replicated so load dynamic refs in client / server
 	LoadVFXDynamicRefs();
 
@@ -127,11 +148,24 @@ void AxBaseCharacter::HandleTakeAnyDamage(AActor* DamagedActor, float Damage, co
 }
 
 // Called every frame
-//void AxBaseCharacter::Tick(float DeltaTime)
-//{
-//	Super::Tick(DeltaTime);
-//
-//}
+void AxBaseCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (HasAuthority())
+	{
+		if (bIsAddingThrowPower && ThrowPower < MaxThrowPower)
+		{
+			ThrowPower += 25;
+
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, FString::SanitizeFloat(ThrowPower));
+			}
+		}
+
+	}
+}
 
 void AxBaseCharacter::MoveFoward(float Value)
 {
@@ -148,6 +182,9 @@ void AxBaseCharacter::MoveRight(float Value)
 void AxBaseCharacter::AttachBallToTPVMesh()
 {
 	bHasBall = true;
+	/*bIsCatchMode = false;
+	bIsAddingThrowPower = false;*/
+	/*bIsThrowing = false;*/
 
 	FName SocketName = TEXT("hand_socket");
 	USkeletalMeshComponent* TPVSkeletalMesh = GetMesh();
@@ -167,7 +204,6 @@ void AxBaseCharacter::AttachBallToTPVMesh()
 
 	/*Ball->SetActorTransform(TPVSocketTransform);*/
 }
-
 
 void AxBaseCharacter::TempChangeCollision(AxBallProjectileBase* BallProjectile)
 {
@@ -192,6 +228,7 @@ void AxBaseCharacter::LoadVFXDynamicRefs()
 	ThrowBallMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/ThrowBallAnimMontage.ThrowBallAnimMontage'")));
 	ThrowBallMontageTPV = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/ThrowBallAnimMontageTPV.ThrowBallAnimMontageTPV'")));
 	PickupBallMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/PickUpAnimMontage.PickUpAnimMontage'")));
+	ThrowPowerIncreaseSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/SciFiWeaponsCyberpunkArsenal/cues/Support_Material/Charge/SCIMisc_Charge_Weapon_15_Cue.SCIMisc_Charge_Weapon_15_Cue'")));
 	//PickupBallMontageTPV = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/PickUpAnimMontageTPV.PickUpAnimMontageTPV'")));
 }
 
@@ -203,7 +240,23 @@ void AxBaseCharacter::Turn(float Value)
 
 void AxBaseCharacter::PlayThrowBallAnim()
 {
-	if (bHasBall)
+	
+	if (!bHasBall)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("NO BALL"));
+	}
+
+	if (bIsThrowing)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("THROWING"));
+	}
+
+	if (ThrowPower <= 0)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("THROW POWER <= 0"));
+	}
+	
+	if (bHasBall && !bIsThrowing && ThrowPower > 0)
 	{
 		bIsThrowing = true;
 		SkeletalMeshComp->GetAnimInstance()->Montage_Play(ThrowBallMontage);
@@ -211,9 +264,68 @@ void AxBaseCharacter::PlayThrowBallAnim()
 	}
 }
 
+void AxBaseCharacter::UnSetCatchMode()
+{
+	bIsCatchMode = false;
+	GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("Catch Mode OFF"));
+
+	GetWorld()->GetTimerManager().ClearTimer(CatchModeTimerHandle);
+}
+
+
+void AxBaseCharacter::ServerSetCatchMode_Implementation()
+{
+
+	if (!bIsCatchMode)
+	{
+		bIsCatchMode = true;
+
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("Catch Mode oN"));
+		}
+
+		GetWorldTimerManager().SetTimer(
+			CatchModeTimerHandle, this, &AxBaseCharacter::UnSetCatchMode, 2.f, false);
+	}
+}
+
+bool AxBaseCharacter::ServerSetCatchMode_Validate()
+{
+	return true;
+}
+
+void AxBaseCharacter::IncreaseThrowPower()
+{
+	if (bHasBall && !bIsThrowing)
+	{
+		if (!bIsAddingThrowPower)
+		{
+			AudioComponent = UGameplayStatics::SpawnSoundAtLocation(GetWorld(), ThrowPowerIncreaseSoundFx, GetActorLocation());
+		}
+
+		ServerIncreaseThrowPower();
+	}
+}
+
+void AxBaseCharacter::ServerIncreaseThrowPower_Implementation()
+{
+
+	if (bHasBall)
+	{
+		bIsAddingThrowPower = true;
+	}
+
+}
+
+bool AxBaseCharacter::ServerIncreaseThrowPower_Validate()
+{
+	return true;
+}
 
 void AxBaseCharacter::ServerPlayTPVThrowBallAnim_Implementation()
 {
+	bIsAddingThrowPower = false;
 	bIsThrowing = true;
 	MulticastPlayTPVThrowAnimation();
 }
@@ -227,7 +339,6 @@ void AxBaseCharacter::MulticastPlayTPVPickupAnimation_Implementation()
 {
 	if (IsValid(PickupBallMontage))
 	{
-		
 		if (IsLocallyControlled())
 		{
 			SkeletalMeshComp->GetAnimInstance()->Montage_Play(PickupBallMontage);
@@ -242,6 +353,11 @@ void AxBaseCharacter::MulticastPlayTPVPickupAnimation_Implementation()
 
 void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraLocation, FVector CameraFowardVector)
 {
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Yellow, TEXT("ServerThrowBall_Implementation"));
+	}
+	
 
 	FHitResult Hit;
 	/*FName SocketName = TEXT("hand_socket");*/
@@ -264,203 +380,210 @@ void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraLocation, FVe
 	AxBallProjectileBase* ProjectileBall = GetWorld()->SpawnActor<AxBallProjectileBase>(AxBallProjectileBase::StaticClass(), ThrowTo, SpawnParams);
 	/*ProjectileBall->AddCollision();*/
 	ProjectileBall->SphereComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	ProjectileBall->Shoot(CameraFowardVector * 2000, 2000);
+	//Ignore the spawner of this projectile
+	ProjectileBall->SphereComp->MoveIgnoreActors.Add(this);
+	ProjectileBall->AddCollision();
+	ProjectileBall->Shoot(CameraFowardVector * (ThrowPower > MaxThrowPower ? MaxThrowPower : ThrowPower));
+	DestroyBalls();
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Yellow, FString::SanitizeFloat(ThrowPower));
+	}
 
 
-	TimerDel.BindUFunction(this, FName("TempChangeCollision"), ProjectileBall);
-	GetWorldTimerManager().SetTimer(TimerHandle, TimerDel, 0.04f, false);
+	/*TimerDel.BindUFunction(this, FName("TempChangeCollision"), ProjectileBall);
+	GetWorldTimerManager().SetTimer(TimerHandle, TimerDel, 0.04f, false);*/
 
 
-	FTimerHandle UnusedHandle;
+	/*FTimerHandle UnusedHandle;
 	GetWorldTimerManager().SetTimer(
-		UnusedHandle, this, &AxBaseCharacter::DestroyBalls, 0.2f, false);
+		UnusedHandle, this, &AxBaseCharacter::DestroyBalls, 0.2f, false);*/
 
-	/*DestroyBalls();*/
+		/*DestroyBalls();*/
 
-	/*FCollisionQueryParams QueryParams;
-	QueryParams.AddIgnoredActor(this);
-	QueryParams.bTraceComplex = true;
-	QueryParams.bReturnPhysicalMaterial = true;*/
+		/*FCollisionQueryParams QueryParams;
+		QueryParams.AddIgnoredActor(this);
+		QueryParams.bTraceComplex = true;
+		QueryParams.bReturnPhysicalMaterial = true;*/
 
-	/*DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::White, false, 1.0f, 0, 1.0f);*/
+		/*DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::White, false, 1.0f, 0, 1.0f);*/
 
-	//if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, XBALTRACE_CHANNEL, QueryParams))
-	//{
-	//	// Hit something
-	//	EPhysicalSurface SurfaceType = UPhysicalMaterial::DetermineSurfaceType(Hit.PhysMaterial.Get());
-	//	float DamageToApply = 0;
+		//if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, XBALTRACE_CHANNEL, QueryParams))
+		//{
+		//	// Hit something
+		//	EPhysicalSurface SurfaceType = UPhysicalMaterial::DetermineSurfaceType(Hit.PhysMaterial.Get());
+		//	float DamageToApply = 0;
 
-	//	AActor* HitActor = Hit.GetActor();
+		//	AActor* HitActor = Hit.GetActor();
 
-	//	/*if (GEngine)
-	//	{
-	//		GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Yellow, TEXT("HEAD"));
-	//	}*/
+		//	/*if (GEngine)
+		//	{
+		//		GEngine->AddOnScreenDebugMessage(-1, 0, FColor::Yellow, TEXT("HEAD"));
+		//	}*/
 
-	//	switch (SurfaceType)
-	//	{
-	//	case SurfaceType_Default:
-	//		break;
-	//	case HEAD:
-	//		DamageToApply = TPVBall->Damage * 4.0f;
-	//		break;
-	//	case TORSO:
-	//		DamageToApply = TPVBall->Damage * 2.0f;
-	//		break;
-	//	case ARMS:
-	//		DamageToApply = TPVBall->Damage * 0.6f;
-	//		break;
-	//	case LEGS:
-	//		DamageToApply = TPVBall->Damage * 0.7f;
-	//		break;
-	//	case SurfaceType5:
-	//		break;
-	//	case SurfaceType6:
-	//		break;
-	//	case SurfaceType7:
-	//		break;
-	//	case SurfaceType8:
-	//		break;
-	//	case SurfaceType9:
-	//		break;
-	//	case SurfaceType10:
-	//		break;
-	//	case SurfaceType11:
-	//		break;
-	//	case SurfaceType12:
-	//		break;
-	//	case SurfaceType13:
-	//		break;
-	//	case SurfaceType14:
-	//		break;
-	//	case SurfaceType15:
-	//		break;
-	//	case SurfaceType16:
-	//		break;
-	//	case SurfaceType17:
-	//		break;
-	//	case SurfaceType18:
-	//		break;
-	//	case SurfaceType19:
-	//		break;
-	//	case SurfaceType20:
-	//		break;
-	//	case SurfaceType21:
-	//		break;
-	//	case SurfaceType22:
-	//		break;
-	//	case SurfaceType23:
-	//		break;
-	//	case SurfaceType24:
-	//		break;
-	//	case SurfaceType25:
-	//		break;
-	//	case SurfaceType26:
-	//		break;
-	//	case SurfaceType27:
-	//		break;
-	//	case SurfaceType28:
-	//		break;
-	//	case SurfaceType29:
-	//		break;
-	//	case SurfaceType30:
-	//		break;
-	//	case SurfaceType31:
-	//		break;
-	//	case SurfaceType32:
-	//		break;
-	//	case SurfaceType33:
-	//		break;
-	//	case SurfaceType34:
-	//		break;
-	//	case SurfaceType35:
-	//		break;
-	//	case SurfaceType36:
-	//		break;
-	//	case SurfaceType37:
-	//		break;
-	//	case SurfaceType38:
-	//		break;
-	//	case SurfaceType39:
-	//		break;
-	//	case SurfaceType40:
-	//		break;
-	//	case SurfaceType41:
-	//		break;
-	//	case SurfaceType42:
-	//		break;
-	//	case SurfaceType43:
-	//		break;
-	//	case SurfaceType44:
-	//		break;
-	//	case SurfaceType45:
-	//		break;
-	//	case SurfaceType46:
-	//		break;
-	//	case SurfaceType47:
-	//		break;
-	//	case SurfaceType48:
-	//		break;
-	//	case SurfaceType49:
-	//		break;
-	//	case SurfaceType50:
-	//		break;
-	//	case SurfaceType51:
-	//		break;
-	//	case SurfaceType52:
-	//		break;
-	//	case SurfaceType53:
-	//		break;
-	//	case SurfaceType54:
-	//		break;
-	//	case SurfaceType55:
-	//		break;
-	//	case SurfaceType56:
-	//		break;
-	//	case SurfaceType57:
-	//		break;
-	//	case SurfaceType58:
-	//		break;
-	//	case SurfaceType59:
-	//		break;
-	//	case SurfaceType60:
-	//		break;
-	//	case SurfaceType61:
-	//		break;
-	//	case SurfaceType62:
-	//		break;
-	//	case SurfaceType_Max:
-	//		break;
-	//	default:
-	//		break;
-	//	}
-	//	
-	//	// Spawn Projectile Ball
-	//	
-	//	
+		//	switch (SurfaceType)
+		//	{
+		//	case SurfaceType_Default:
+		//		break;
+		//	case HEAD:
+		//		DamageToApply = TPVBall->Damage * 4.0f;
+		//		break;
+		//	case TORSO:
+		//		DamageToApply = TPVBall->Damage * 2.0f;
+		//		break;
+		//	case ARMS:
+		//		DamageToApply = TPVBall->Damage * 0.6f;
+		//		break;
+		//	case LEGS:
+		//		DamageToApply = TPVBall->Damage * 0.7f;
+		//		break;
+		//	case SurfaceType5:
+		//		break;
+		//	case SurfaceType6:
+		//		break;
+		//	case SurfaceType7:
+		//		break;
+		//	case SurfaceType8:
+		//		break;
+		//	case SurfaceType9:
+		//		break;
+		//	case SurfaceType10:
+		//		break;
+		//	case SurfaceType11:
+		//		break;
+		//	case SurfaceType12:
+		//		break;
+		//	case SurfaceType13:
+		//		break;
+		//	case SurfaceType14:
+		//		break;
+		//	case SurfaceType15:
+		//		break;
+		//	case SurfaceType16:
+		//		break;
+		//	case SurfaceType17:
+		//		break;
+		//	case SurfaceType18:
+		//		break;
+		//	case SurfaceType19:
+		//		break;
+		//	case SurfaceType20:
+		//		break;
+		//	case SurfaceType21:
+		//		break;
+		//	case SurfaceType22:
+		//		break;
+		//	case SurfaceType23:
+		//		break;
+		//	case SurfaceType24:
+		//		break;
+		//	case SurfaceType25:
+		//		break;
+		//	case SurfaceType26:
+		//		break;
+		//	case SurfaceType27:
+		//		break;
+		//	case SurfaceType28:
+		//		break;
+		//	case SurfaceType29:
+		//		break;
+		//	case SurfaceType30:
+		//		break;
+		//	case SurfaceType31:
+		//		break;
+		//	case SurfaceType32:
+		//		break;
+		//	case SurfaceType33:
+		//		break;
+		//	case SurfaceType34:
+		//		break;
+		//	case SurfaceType35:
+		//		break;
+		//	case SurfaceType36:
+		//		break;
+		//	case SurfaceType37:
+		//		break;
+		//	case SurfaceType38:
+		//		break;
+		//	case SurfaceType39:
+		//		break;
+		//	case SurfaceType40:
+		//		break;
+		//	case SurfaceType41:
+		//		break;
+		//	case SurfaceType42:
+		//		break;
+		//	case SurfaceType43:
+		//		break;
+		//	case SurfaceType44:
+		//		break;
+		//	case SurfaceType45:
+		//		break;
+		//	case SurfaceType46:
+		//		break;
+		//	case SurfaceType47:
+		//		break;
+		//	case SurfaceType48:
+		//		break;
+		//	case SurfaceType49:
+		//		break;
+		//	case SurfaceType50:
+		//		break;
+		//	case SurfaceType51:
+		//		break;
+		//	case SurfaceType52:
+		//		break;
+		//	case SurfaceType53:
+		//		break;
+		//	case SurfaceType54:
+		//		break;
+		//	case SurfaceType55:
+		//		break;
+		//	case SurfaceType56:
+		//		break;
+		//	case SurfaceType57:
+		//		break;
+		//	case SurfaceType58:
+		//		break;
+		//	case SurfaceType59:
+		//		break;
+		//	case SurfaceType60:
+		//		break;
+		//	case SurfaceType61:
+		//		break;
+		//	case SurfaceType62:
+		//		break;
+		//	case SurfaceType_Max:
+		//		break;
+		//	default:
+		//		break;
+		//	}
+		//	
+		//	// Spawn Projectile Ball
+		//	
+		//	
 
-	//	/*TPVBall->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);*/
-	///*	TPVBall->SphereComp->SetSimulatePhysics(true);
-	//	TPVBall->SphereComp->AddImpulse(TraceEnd);*/
+		//	/*TPVBall->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);*/
+		///*	TPVBall->SphereComp->SetSimulatePhysics(true);
+		//	TPVBall->SphereComp->AddImpulse(TraceEnd);*/
 
-	//	/*if (DamageToApply > 0)
-	//	{
-	//		UGameplayStatics::ApplyPointDamage(HitActor, DamageToApply, CameraFowardVector, Hit, GetOwner()->GetInstigatorController(), TPVBall, TPVBall->DamageType);
-	//	}*/
+		//	/*if (DamageToApply > 0)
+		//	{
+		//		UGameplayStatics::ApplyPointDamage(HitActor, DamageToApply, CameraFowardVector, Hit, GetOwner()->GetInstigatorController(), TPVBall, TPVBall->DamageType);
+		//	}*/
 
-	//	DestroyBalls();
-	//}
+		//	DestroyBalls();
+		//}
 }
 
 bool AxBaseCharacter::ServerThrowBall_Validate(FVector CameraLocation, FVector CameraFowardVector)
 {
-	return IsValid(TPVBall) && !TPVBall->bIsExploding;
+	return true;//IsValid(TPVBall) && !TPVBall->bIsExploding;
 }
 
 void AxBaseCharacter::ServerSetPLayerIsThrowing_Implementation(bool bPlayerIsThrowing)
 {
 	bIsThrowing = bPlayerIsThrowing;
-	bHasBall = bIsThrowing;
 }
 
 bool AxBaseCharacter::ServerSetPLayerIsThrowing_Validate(bool bPlayerIsThrowing)
@@ -490,7 +613,11 @@ void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 	PlayerInputComponent->BindAxis("MoveRight", this, &AxBaseCharacter::MoveRight);
 
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AxBaseCharacter::Jump);
-	PlayerInputComponent->BindAction("ThrowBall", IE_Pressed, this, &AxBaseCharacter::PlayThrowBallAnim);
+
+	PlayerInputComponent->BindAction("ThrowBall", IE_Pressed, this, &AxBaseCharacter::IncreaseThrowPower);
+	PlayerInputComponent->BindAction("ThrowBall", IE_Released, this, &AxBaseCharacter::PlayThrowBallAnim);
+
+	PlayerInputComponent->BindAction("TryCatchBall", IE_Pressed, this, &AxBaseCharacter::ServerSetCatchMode);
 }
 
 
@@ -515,22 +642,30 @@ void AxBaseCharacter::SpawnNewBallOnFPVMesh()
 
 void AxBaseCharacter::MulticastDestroyBalls_Implementation()
 {
+	
+}
+
+void AxBaseCharacter::DestroyBalls()
+{
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("DESTROY BALLS SERVER"));
+	}
+	ThrowPower = 0;
+	bHasBall = false;
+	bIsThrowing = false;
+	bIsAddingThrowPower = false;
+	/*GetWorld()->GetTimerManager().ClearAllTimersForObject(this);*/
+	TPVBall->ClientStopWarn();
+	//MulticastDestroyBalls();
 	if (IsValid(FPVBall))
 	{
 		FPVBall->Destroy();
 	}
 	if (IsValid(TPVBall))
 	{
-		TPVBall->ClientStopWarn();
 		TPVBall->Destroy();
 	}
-}
-
-void AxBaseCharacter::DestroyBalls()
-{
-	bHasBall = false;
-	GetWorld()->GetTimerManager().ClearAllTimersForObject(this);
-	MulticastDestroyBalls();
 }
 
 void AxBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -541,5 +676,9 @@ void AxBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(AxBaseCharacter, FPVBall);
 	DOREPLIFETIME(AxBaseCharacter, TPVBall);
 	DOREPLIFETIME(AxBaseCharacter, bIsThrowing);
+	DOREPLIFETIME(AxBaseCharacter, ThrowPower);
+	DOREPLIFETIME(AxBaseCharacter, MaxThrowPower);
+	DOREPLIFETIME(AxBaseCharacter, Health);
+	DOREPLIFETIME(AxBaseCharacter, bIsAddingThrowPower);
 }
 

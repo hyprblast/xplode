@@ -9,7 +9,7 @@ void UPickupAnimNotify::Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBa
 {
 	AActor* Player = MeshComp->GetOwner();
 
-	if (IsValid(MeshComp) && IsValid(Player) && Player->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()))
+	if (IsValid(Player) && Player->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()))
 	{
 		IxBaseCharacterInterface::Execute_AttachBall(Player);
 	}
