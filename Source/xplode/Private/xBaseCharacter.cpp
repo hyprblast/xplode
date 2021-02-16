@@ -48,7 +48,7 @@ AxBaseCharacter::AxBaseCharacter()
 
 	CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	CameraComp->SetWorldLocation(FVector(0, 0, 70.0f));
-	
+	/*CameraComp->bUsePawnControlRotation = false;*/
 	CameraComp->SetupAttachment(CapsuleComp);
 
 	
@@ -149,6 +149,8 @@ void AxBaseCharacter::BeginPlay()
 
 	if (IsLocallyControlled())
 	{
+		CameraVieww = UxCameraView::TopDown;
+
 		FTimerHandle UUnusedHandle;
 		GetWorldTimerManager().SetTimer(
 			UUnusedHandle, this, &AxBaseCharacter::SetTopDownCamera, 0.01f, false);
@@ -191,14 +193,30 @@ void AxBaseCharacter::Tick(float DeltaTime)
 
 void AxBaseCharacter::MoveFoward(float Value)
 {
-	FVector FowardVector = GetActorForwardVector();
-	AddMovementInput(FowardVector, Value);
+	// find out which way is forward
+	const FRotator Rotation = Controller->GetControlRotation();
+	const FRotator YawRotation(0, Rotation.Yaw, 0);
+
+	// get forward vector
+	const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+
+	AddMovementInput(Direction * Value);
 }
 
 void AxBaseCharacter::MoveRight(float Value)
 {
-	FVector RightVector = GetActorRightVector();
-	AddMovementInput(RightVector, Value);
+	/*FVector RightVector = GetActorRightVector();
+	AddMovementInput(RightVector, Value);*/
+
+	// find out which way is right
+	const FRotator Rotation = Controller->GetControlRotation();
+	const FRotator YawRotation(0, Rotation.Yaw, 0);
+
+	// get right vector 
+	const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+
+	// add movement in that direction
+	AddMovementInput(Direction, Value);
 }
 
 void AxBaseCharacter::AttachBallToTPVMesh()
@@ -238,7 +256,8 @@ void AxBaseCharacter::SetFPVCamera()
 
 	CameraComp->bUsePawnControlRotation = true;
 	bUseControllerRotationYaw = true;
-	/*GetCharacterMovement()->bOrientRotationToMovement = false;*/
+	GetCharacterMovement()->bOrientRotationToMovement = false;
+
 	
 }
 
@@ -258,14 +277,18 @@ void AxBaseCharacter::SetTopDownCamera()
 		bUseControllerRotationYaw = false;
 		bUseControllerRotationPitch = false;
 		bUseControllerRotationRoll = false;
-		UCharacterMovementComponent* const MovementComponent = GetCharacterMovement();
-		if (MovementComponent)
-		{
-			MovementComponent->bOrientRotationToMovement = true;
-			MovementComponent->bUseControllerDesiredRotation = false;
-			MovementComponent->RotationRate = FRotator(0.0f, 540.0f, 0.0f);
 
-		}
+		GetCharacterMovement()->bOrientRotationToMovement = true;
+
+		//UCharacterMovementComponent* const MovementComponent = GetCharacterMovement();
+		//if (MovementComponent)
+		//{
+		//	MovementComponent->bOrientRotationToMovement = true;
+		//	/*MovementComponent->bUseControllerDesiredRotation = false;*/
+		///*	MovementComponent->RotationRate = FRotator(0.0f,540.0f, 0.0f);*/
+		//	/*MovementComponent->bAllowPhysicsRotationDuringAnimRootMotion = true;*/
+
+		//}
 
 		/*GetCharacterMovement()->bOrientRotationToMovement = true;
 
@@ -316,8 +339,12 @@ void AxBaseCharacter::LoadDynamicRefs()
 
 void AxBaseCharacter::Turn(float Value)
 {
-	InputAxisYawValue = Value;
-	AxBaseCharacter::AddControllerYawInput(Value);
+	if (CameraVieww == UxCameraView::FirstPerson)
+	{
+		InputAxisYawValue = Value;
+		AxBaseCharacter::AddControllerYawInput(Value);
+	}
+	
 }
 
 void AxBaseCharacter::PlayThrowBallAnim()
