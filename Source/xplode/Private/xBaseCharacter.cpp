@@ -22,6 +22,8 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include <Engine/Blueprint.h>
+#include "xplodeGameStateBase.h"
 
 
 // Sets default values
@@ -36,8 +38,8 @@ AxBaseCharacter::AxBaseCharacter()
 
 	//CapsuleComp->SetWalkableSlopeOverride()
 	/*CapsuleComp->SetCollisionProfileName(TEXT("Spectator"));*/
-
 	/*CapsuleComp->SetGenerateOverlapEvents(false);*/
+
 	USkeletalMeshComponent* TPVMesh = GetMesh();
 
 	TPVMesh->SetCollisionObjectType(XBALLNOCOLLISIONOBJECT_CHANNEL);
@@ -46,8 +48,11 @@ AxBaseCharacter::AxBaseCharacter()
 
 	CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	CameraComp->SetWorldLocation(FVector(0, 0, 70.0f));
-	CameraComp->bUsePawnControlRotation = true;
+	
 	CameraComp->SetupAttachment(CapsuleComp);
+
+	
+
 
 	SkeletalMeshComp = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FPArms"));
 	SkeletalMeshComp->CanCharacterStepUp(false);
@@ -66,6 +71,10 @@ AxBaseCharacter::AxBaseCharacter()
 	GetCapsuleComponent()->SetSimulatePhysics(false);*/
 
 	Tags.Add(FName("Player"));
+
+	
+	/*static ConstructorHelpers::FObjectFinder<UBlueprint> GameCameraBP(TEXT("Blueprint'/Game/_Main/Actors/Blueprints/BP_GameCamera.BP_GameCamera'"));
+	GameCamera = Cast<AxGameCamera>(GameCameraBP.Object);*/
 
 }
 
@@ -134,13 +143,26 @@ void AxBaseCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	
-
-	// VFX are not being replicated so load dynamic refs in client / server
-	LoadVFXDynamicRefs();
+	LoadDynamicRefs();
 
 	OnTakeAnyDamage.AddDynamic(this, &AxBaseCharacter::HandleTakeAnyDamage);
+
+	if (IsLocallyControlled())
+	{
+		FTimerHandle UUnusedHandle;
+		GetWorldTimerManager().SetTimer(
+			UUnusedHandle, this, &AxBaseCharacter::SetTopDownCamera, 0.01f, false);
+	}
 }
+
+//void AxBaseCharacter::Restart()
+//{
+//	// Restart on server happens after possess.
+//	if (HasAuthority())
+//	{
+//		ClientSetTopDownCamera();
+//	}
+//}
 
 void AxBaseCharacter::HandleTakeAnyDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser)
 {
@@ -163,8 +185,8 @@ void AxBaseCharacter::Tick(float DeltaTime)
 				GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, FString::SanitizeFloat(ThrowPower));
 			}
 		}
-
 	}
+	
 }
 
 void AxBaseCharacter::MoveFoward(float Value)
@@ -200,9 +222,69 @@ void AxBaseCharacter::AttachBallToTPVMesh()
 
 	TPVBall->SphereComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	TPVBall->AttachToComponent(TPVSkeletalMesh, TransformRules, SocketName);
-	TPVBall->StartTimer();
+	/*TPVBall->StartTimer();*/
 
 	/*Ball->SetActorTransform(TPVSocketTransform);*/
+}
+
+void AxBaseCharacter::SetFPVCamera()
+{
+
+	//Find the actor that handles control for the local player.
+	APlayerController* OurPlayerController = UGameplayStatics::GetPlayerController(this, 0);
+
+	//Smoothly transition to our actor on begin play.
+	OurPlayerController->SetViewTargetWithBlend(this, .5f);
+
+	CameraComp->bUsePawnControlRotation = true;
+	bUseControllerRotationYaw = true;
+	/*GetCharacterMovement()->bOrientRotationToMovement = false;*/
+	
+}
+
+
+void AxBaseCharacter::SetTopDownCamera()
+{
+	AxplodeGameStateBase* GameState = Cast<AxplodeGameStateBase>(GetWorld()->GetGameState());
+
+	if (IsValid(GameState) && IsValid(GameState->GameCamera))
+	{
+		/*Find the actor that handles control for the local player.*/
+		APlayerController* OurPlayerController = UGameplayStatics::GetPlayerController(this, 0);
+
+		//Smoothly transition to top down camera.
+		OurPlayerController->SetViewTargetWithBlend(GameState->GameCamera, .5f);
+
+		bUseControllerRotationYaw = false;
+		bUseControllerRotationPitch = false;
+		bUseControllerRotationRoll = false;
+		UCharacterMovementComponent* const MovementComponent = GetCharacterMovement();
+		if (MovementComponent)
+		{
+			MovementComponent->bOrientRotationToMovement = true;
+			MovementComponent->bUseControllerDesiredRotation = false;
+			MovementComponent->RotationRate = FRotator(0.0f, 540.0f, 0.0f);
+
+		}
+
+		/*GetCharacterMovement()->bOrientRotationToMovement = true;
+
+		bUseControllerRotationYaw = false;*/
+
+		/*GetCharacterMovement()->bUseControllerDesiredRotation = true;
+
+		GetMesh()->SetRelativeRotation(CombatModeCharacterRotation);*/
+	}
+	
+
+	/*if (!IsValid(GameCamera))
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("NO CAMERA"));
+	}*/
+
+
+	SkeletalMeshComp->SetHiddenInGame(true);
+	GetMesh()->bOwnerNoSee = false;
 }
 
 void AxBaseCharacter::TempChangeCollision(AxBallProjectileBase* BallProjectile)
@@ -222,14 +304,14 @@ AxBallBase* AxBaseCharacter::SpawnBall(FTransform SpawnLocation)
 	return Ball;
 }
 
-void AxBaseCharacter::LoadVFXDynamicRefs()
+void AxBaseCharacter::LoadDynamicRefs()
 {
 	// Load References
 	ThrowBallMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/ThrowBallAnimMontage.ThrowBallAnimMontage'")));
 	ThrowBallMontageTPV = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/ThrowBallAnimMontageTPV.ThrowBallAnimMontageTPV'")));
 	PickupBallMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/PickUpAnimMontage.PickUpAnimMontage'")));
 	ThrowPowerIncreaseSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/SciFiWeaponsCyberpunkArsenal/cues/Support_Material/Charge/SCIMisc_Charge_Weapon_15_Cue.SCIMisc_Charge_Weapon_15_Cue'")));
-	//PickupBallMontageTPV = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/PickUpAnimMontageTPV.PickUpAnimMontageTPV'")));
+	//GameCamera = Cast<AxGameCamera>(StaticLoadObject(UBlueprint::StaticClass(), NULL, TEXT("Blueprint'/Game/_Main/Actors/Blueprints/BP_GameCamera.BP_GameCamera'")));
 }
 
 void AxBaseCharacter::Turn(float Value)
@@ -240,7 +322,7 @@ void AxBaseCharacter::Turn(float Value)
 
 void AxBaseCharacter::PlayThrowBallAnim()
 {
-	
+
 	if (!bHasBall)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("NO BALL"));
@@ -255,7 +337,7 @@ void AxBaseCharacter::PlayThrowBallAnim()
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("THROW POWER <= 0"));
 	}
-	
+
 	if (bHasBall && !bIsThrowing && ThrowPower > 0)
 	{
 		bIsThrowing = true;
@@ -272,6 +354,23 @@ void AxBaseCharacter::UnSetCatchMode()
 	GetWorld()->GetTimerManager().ClearTimer(CatchModeTimerHandle);
 }
 
+
+void AxBaseCharacter::CamToggle()
+{
+	switch (CameraVieww)
+	{
+	case UxCameraView::FirstPerson:
+		CameraVieww = UxCameraView::TopDown;
+		SetTopDownCamera();
+		break;
+	case UxCameraView::TopDown:
+		CameraVieww = UxCameraView::FirstPerson;
+		SetFPVCamera();
+		break;
+	default:
+		break;
+	}
+}
 
 void AxBaseCharacter::ServerSetCatchMode_Implementation()
 {
@@ -294,6 +393,11 @@ bool AxBaseCharacter::ServerSetCatchMode_Validate()
 {
 	return true;
 }
+
+//void AxBaseCharacter::ClientSetTopDownCamera_Implementation()
+//{
+//	SetTopDownCamera();
+//}
 
 void AxBaseCharacter::IncreaseThrowPower()
 {
@@ -357,7 +461,7 @@ void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraLocation, FVe
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Yellow, TEXT("ServerThrowBall_Implementation"));
 	}
-	
+
 
 	FHitResult Hit;
 	/*FName SocketName = TEXT("hand_socket");*/
@@ -618,6 +722,7 @@ void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 	PlayerInputComponent->BindAction("ThrowBall", IE_Released, this, &AxBaseCharacter::PlayThrowBallAnim);
 
 	PlayerInputComponent->BindAction("TryCatchBall", IE_Pressed, this, &AxBaseCharacter::ServerSetCatchMode);
+	PlayerInputComponent->BindAction("CamToggle", IE_Pressed, this, &AxBaseCharacter::CamToggle);
 }
 
 
@@ -642,7 +747,7 @@ void AxBaseCharacter::SpawnNewBallOnFPVMesh()
 
 void AxBaseCharacter::MulticastDestroyBalls_Implementation()
 {
-	
+
 }
 
 void AxBaseCharacter::DestroyBalls()

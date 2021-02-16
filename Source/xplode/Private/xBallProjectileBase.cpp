@@ -15,6 +15,9 @@
 #include "Sound/SoundCue.h"
 #include "Particles/ParticleSystem.h"
 #include "xBaseCharacterInterface.h"
+#include <UObject/ConstructorHelpers.h>
+#include "Camera/CameraComponent.h"
+#include "xplodeGameStateBase.h"
 
 // Sets default values
 AxBallProjectileBase::AxBallProjectileBase()
@@ -23,6 +26,7 @@ AxBallProjectileBase::AxBallProjectileBase()
 	ProjectileMovementComp = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
 	ProjectileMovementComp->SetIsReplicated(true);
 	ProjectileMovementComp->bAutoActivate = false;
+
 
 	SphereComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Sphere"));
 	SphereComp->SetGenerateOverlapEvents(false);
@@ -45,7 +49,7 @@ AxBallProjectileBase::AxBallProjectileBase()
 	bReplicates = true;
 	SetReplicateMovement(true);
 
-	ProjectileMovementComp->UpdatedComponent = SphereComp;
+	ProjectileMovementComp->UpdatedComponent = SphereComp;	
 
 }
 
@@ -68,6 +72,10 @@ void AxBallProjectileBase::Shoot(FVector Velocity)
 	ProjectileMovementComp->Velocity = Velocity;
 	/*ProjectileMovementComp->HomingAccelerationMagnitude = 50000;*/
 	ProjectileMovementComp->bRotationFollowsVelocity = true;
+	ProjectileMovementComp->bRotationRemainsVertical = true;
+
+	ProjectileMovementComp->bInterpMovement = true;
+	ProjectileMovementComp->bInterpRotation = true;
 	ProjectileMovementComp->bShouldBounce = true;
 	ProjectileMovementComp->Bounciness = 0.6f;
 	ProjectileMovementComp->Activate();
@@ -158,11 +166,21 @@ void AxBallProjectileBase::BeginPlay()
 		SetStaticMesh();
 		SphereComp->OnComponentHit.AddDynamic(this, &AxBallProjectileBase::OnCompHit);
 	}
+	else
+	{
+		AxplodeGameStateBase* GameState = Cast<AxplodeGameStateBase>(GetWorld()->GetGameState());
 
-	LoadVFXDynamicRefs();
+		if (IsValid(GameState) && IsValid(GameState->GameCamera))
+		{
+			GameState->GameCamera->FollowActor = this;
+		}
+
+	}
+
+	LoadDynamicRefs();
 }
 
-void AxBallProjectileBase::LoadVFXDynamicRefs()
+void AxBallProjectileBase::LoadDynamicRefs()
 {
 	CoolDownSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/SciFiWeaponsCyberpunkArsenal/cues/Support_Material/Cooldown/SCIMisc_Cooldown_01_Cue.SCIMisc_Cooldown_01_Cue'")));
 }

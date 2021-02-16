@@ -15,6 +15,8 @@
 #include "Particles/ParticleSystem.h"
 #include "Sound/SoundCue.h"
 #include "Components/AudioComponent.h"
+#include "GameFramework/SpringArmComponent.h"
+#include "Camera/CameraComponent.h"
 #include "xBallProjectileBase.generated.h"
 
 UCLASS()
@@ -46,7 +48,7 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 		UProjectileMovementComponent* ProjectileMovementComp;
-	
+
 	UPROPERTY()
 		UStaticMesh* SphereStaticMeshObject;
 
@@ -88,7 +90,7 @@ private:
 		void StopCoolDown();
 
 		UFUNCTION()
-		void LoadVFXDynamicRefs();
+		void LoadDynamicRefs();
 
 
 	/*UFUNCTION()

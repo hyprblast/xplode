@@ -10,6 +10,8 @@
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "Chaos/ChaosEngineInterface.h"
+#include "xplodeGameStateBase.h"
+
 
 
 // Sets default values
@@ -33,7 +35,6 @@ AxBallBase::AxBallBase()
 
 	bReplicates = true;
 	SetReplicateMovement(true);
-	
 
 }
 
@@ -73,12 +74,22 @@ void AxBallBase::BeginPlay()
 	Super::BeginPlay();
 
 	// VFX are not being replicated so load refs in client / server
-	LoadVFXDynamicRefs();
+	LoadDynamicRefs();
 
 	// SphereComponent is replicated so just set the staticmesh on server
 	if (HasAuthority())
 	{
 		SetStaticMesh();
+	}
+	else 
+	{
+		AxplodeGameStateBase* GameState = Cast<AxplodeGameStateBase>(GetWorld()->GetGameState());
+
+		if (IsValid(GameState) && IsValid(GameState->GameCamera))
+		{
+			GameState->GameCamera->FollowActor = this;
+		}
+
 	}
 }
 
@@ -133,7 +144,7 @@ void AxBallBase::OnTimerElapsed()
 	}
 }
 
-void AxBallBase::LoadVFXDynamicRefs()
+void AxBallBase::LoadDynamicRefs()
 {
 	ExplosionParticle = Cast<UParticleSystem>(StaticLoadObject(UParticleSystem::StaticClass(), NULL, TEXT("ParticleSystem'/Game/BallisticsVFX/Particles/Explosive/Explosion_GrenadeLauncher_1.Explosion_GrenadeLauncher_1'")));
 	ExplosionSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/Battle_Royale_Game/Cues/Explosions/Explosion_Grenade_Close_2_Bomb_Explode_Fiery_Loud_Cue.Explosion_Grenade_Close_2_Bomb_Explode_Fiery_Loud_Cue'")));

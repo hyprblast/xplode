@@ -10,6 +10,9 @@
 #include "Animation/AnimMontage.h"
 #include "Components/AudioComponent.h"
 #include "Sound/SoundCue.h"
+#include "GameFramework/SpringArmComponent.h"
+#include "xCameraViewEnum.h"
+#include "xGameCamera.h"
 #include "xBaseCharacter.generated.h"
 
 class UCameraComponent;
@@ -38,6 +41,10 @@ public:
 	UPROPERTY()
 		bool bIsCatchMode;
 
+	//FRotator CombatModeCharacterRotation = FRotator(0, -81.0f, 0); //y (pitch), z (yaw), x (roll)
+
+	//FRotator DefaultModeCharacterRotation = FRotator(0, -90.0f, 0);
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 		UCameraComponent* CameraComp;
 
@@ -55,6 +62,9 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
 		USoundCue* ThrowPowerIncreaseSoundFx;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
+		UxCameraView CameraVieww;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerIsThrowing();  // This is the prototype declared in the interface
@@ -124,40 +134,70 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+
+	// Called when the Pawn is restarted (normally when possessed by a controller)
+	//virtual void Restart() override;
+
 	UFUNCTION()
 	void MoveFoward(float Value);
+	
 	UFUNCTION()
 	void MoveRight(float Value);
+	
 	UFUNCTION()
 		void Turn(float Value);
+	
 	UFUNCTION()
 		void PlayThrowBallAnim();
+	
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerSetCatchMode();
+	
+	/*UFUNCTION(Client, Reliable)
+		void ClientSetTopDownCamera();*/
+	
 	UFUNCTION()
 		void UnSetCatchMode();
+	
+	UFUNCTION()
+		void CamToggle();
+	
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerIncreaseThrowPower();
+	
 	UFUNCTION()
 		void HandleTakeAnyDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser);
+	
 	UPROPERTY(BlueprintReadOnly, Category = "Default")
 		float InputAxisYawValue = 0;
+	
 	UPROPERTY(Replicated)
 		AxBallBase* FPVBall;
+	
 	UPROPERTY(Replicated)
 		AxBallBase* TPVBall;
+	
 	UPROPERTY(EditAnywhere, Category = "Animation")
 		UAnimMontage* ThrowBallMontage;
+	
 	UPROPERTY(EditAnywhere, Category = "Animation")
 		UAnimMontage* ThrowBallMontageTPV;
+	
 	UPROPERTY(EditAnywhere, Category = "Animation")
 		UAnimMontage* PickupBallMontage;
 	/*UPROPERTY(EditAnywhere, Category = "Animation")
 		UAnimMontage* PickupBallMontageTPV;*/
 
-private:
+private:	
 	UFUNCTION()
 	void AttachBallToTPVMesh();
+	
+	UFUNCTION()
+		void SetFPVCamera();
+	
+	UFUNCTION()
+		void SetTopDownCamera();
+	
 	UPROPERTY()
 		FTimerHandle CatchModeTimerHandle;
 
@@ -168,7 +208,7 @@ private:
 	AxBallBase* SpawnBall(FTransform SpawnLocation);
 
 	UFUNCTION()
-	void LoadVFXDynamicRefs();
+	void LoadDynamicRefs();
 
 	UFUNCTION()
 	void DestroyBalls();

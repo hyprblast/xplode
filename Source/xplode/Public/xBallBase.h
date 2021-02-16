@@ -11,6 +11,8 @@
 #include "Particles/ParticleSystem.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Components/AudioComponent.h"
+#include "GameFramework/SpringArmComponent.h"
+#include "Camera/CameraComponent.h"
 #include "xBallBase.generated.h"
 
 UCLASS()
@@ -85,7 +87,7 @@ public:
 
 	UPROPERTY()
 		UAudioComponent* AudioComponent;
-
+	
 	/*UFUNCTION()
 	void CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, class AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);*/
 protected:
@@ -114,7 +116,7 @@ private:
 		void OnTimerElapsed();
 
 	UFUNCTION()
-	void LoadVFXDynamicRefs();
+	void LoadDynamicRefs();
 	
 	UFUNCTION()
 		void SetStaticMesh();
