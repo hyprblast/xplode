@@ -40,6 +40,9 @@ public:
 	UFUNCTION()
 		void Shoot(FVector Velocity);
 
+	UFUNCTION()
+		void AddSelfAsCameraTarget();
+
 	UPROPERTY()
 	bool bCoolDownStarted;
 

@@ -17,12 +17,4 @@ class XPLODE_API AxplodeGameStateBase : public AGameStateBase
 {
 	GENERATED_BODY()
 
-public:
-	UPROPERTY()
-		AxGameCamera* GameCamera;
-
-protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
-
 };

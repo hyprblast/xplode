@@ -63,8 +63,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
 		USoundCue* ThrowPowerIncreaseSoundFx;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
-		UxCameraView CameraVieww;
+	UPROPERTY()
+		FName PlayerTypeName;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerIsThrowing();  // This is the prototype declared in the interface
@@ -129,14 +129,23 @@ public:
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastDestroyBalls();
 
+	UFUNCTION(NetMulticast, Reliable)
+		void MulticastSetTopDownViewSettings();
 
+	UFUNCTION(Client, Reliable)
+		void ClientActivateTopDownViewCam();
+
+	UFUNCTION(Client, Reliable)
+		void ClientSetPlayerTypeName(FName TypeName);
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
 	// Called when the Pawn is restarted (normally when possessed by a controller)
-	//virtual void Restart() override;
+	/*virtual void Restart() override;*/
+
+	/*virtual void PossessedBy(AController* NewController) override;*/
 
 	UFUNCTION()
 	void MoveFoward(float Value);
@@ -153,9 +162,6 @@ protected:
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerSetCatchMode();
 	
-	/*UFUNCTION(Client, Reliable)
-		void ClientSetTopDownCamera();*/
-	
 	UFUNCTION()
 		void UnSetCatchMode();
 	
@@ -164,6 +170,20 @@ protected:
 	
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerIncreaseThrowPower();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerSetFirstPersonViewSettings();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerSetTopDownViewSettings();
+
+	UFUNCTION(NetMulticast, Reliable)
+		void MulticastSetFirstPersonViewSettings();
+
+
+
+	UFUNCTION(Client, Reliable)
+		void ClientActivateFirstPersonViewCam();
 	
 	UFUNCTION()
 		void HandleTakeAnyDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser);
@@ -185,22 +205,28 @@ protected:
 	
 	UPROPERTY(EditAnywhere, Category = "Animation")
 		UAnimMontage* PickupBallMontage;
+
+	
+
 	/*UPROPERTY(EditAnywhere, Category = "Animation")
 		UAnimMontage* PickupBallMontageTPV;*/
 
 private:	
+	UPROPERTY()
+		AxGameCamera* TopDownCam;
+
+	UPROPERTY()
+		UxCameraView CameraVieww;
+
+	UPROPERTY()
+		FTimerHandle CatchModeTimerHandle;
+	
+	UFUNCTION()
+		void FindTopDownCamera();
+
 	UFUNCTION()
 	void AttachBallToTPVMesh();
 	
-	UFUNCTION()
-		void SetFPVCamera();
-	
-	UFUNCTION()
-		void SetTopDownCamera();
-	
-	UPROPERTY()
-		FTimerHandle CatchModeTimerHandle;
-
 	UFUNCTION()
 	void TempChangeCollision(AxBallProjectileBase* BallProjectile);
 
@@ -212,4 +238,5 @@ private:
 
 	UFUNCTION()
 	void DestroyBalls();
+
 };

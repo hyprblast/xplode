@@ -41,8 +41,8 @@ public:
 	virtual int32 ShowSelectTeam_Implementation() override; // This is the declaration of the implementation
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-	int32 SpawnPlayer(TSubclassOf<AxBaseCharacter> PlayerToSpawn, FTransform PlayerToSpawnTransform);
-	virtual int32 SpawnPlayer_Implementation(TSubclassOf<AxBaseCharacter> PlayerToSpawn, FTransform PlayerToSpawnTransform) override;
+	int32 SpawnPlayer(TSubclassOf<AxBaseCharacter> PlayerToSpawn, FTransform PlayerToSpawnTransform, FName PlayerTypeName);
+	virtual int32 SpawnPlayer_Implementation(TSubclassOf<AxBaseCharacter> PlayerToSpawn, FTransform PlayerToSpawnTransform, FName PlayerTypeName) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SelectPlayerType(FName TypeName);
@@ -55,6 +55,9 @@ public:
 	// Called from server, executed on client
 	UFUNCTION(Client, Reliable)
 		void ClientShowTeamSelection();
+
+	UFUNCTION(Client, Reliable)
+		void ClientSetSpawnTransform(FTransform Transform);
 
 	// Called from server, executed on client
 	UFUNCTION(Client, Reliable)

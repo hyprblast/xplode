@@ -83,10 +83,24 @@ void AxBallProjectileBase::Shoot(FVector Velocity)
 	ProjectileMovementComp->InitialSpeed = 2000;*/
 	ProjectileMovementComp->ProjectileGravityScale = 0.7f;
 
-	
-
 }
 
+
+void AxBallProjectileBase::AddSelfAsCameraTarget()
+{
+	TArray<AActor*> FoundCameras;
+
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AxGameCamera::StaticClass(), FoundCameras);
+
+	if (FoundCameras.Num() == 2)
+	{
+		AxGameCamera* Cam1 = Cast<AxGameCamera>(FoundCameras[0]);
+		AxGameCamera* Cam2 = Cast<AxGameCamera>(FoundCameras[1]);
+
+		Cam1->FollowActor = this;
+		Cam2->FollowActor = this;
+	}
+}
 
 void AxBallProjectileBase::OnCompHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
@@ -165,16 +179,6 @@ void AxBallProjectileBase::BeginPlay()
 	{
 		SetStaticMesh();
 		SphereComp->OnComponentHit.AddDynamic(this, &AxBallProjectileBase::OnCompHit);
-	}
-	else
-	{
-		AxplodeGameStateBase* GameState = Cast<AxplodeGameStateBase>(GetWorld()->GetGameState());
-
-		if (IsValid(GameState) && IsValid(GameState->GameCamera))
-		{
-			GameState->GameCamera->FollowActor = this;
-		}
-
 	}
 
 	LoadDynamicRefs();

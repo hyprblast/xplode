@@ -32,6 +32,9 @@ public:
 		void StartTimer();
 
 	UFUNCTION()
+		void AddSelfAsCameraTarget();
+
+	UFUNCTION()
 	void AddOverlap();
 
 	UFUNCTION(NetMulticast, Reliable)

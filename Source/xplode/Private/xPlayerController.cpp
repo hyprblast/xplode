@@ -2,6 +2,9 @@
 
 
 #include "xPlayerController.h"
+#include "GameFramework/Controller.h"
+#include <GameFramework/Pawn.h>
+#include <GameFramework/PawnMovementComponent.h>
 
 
 
@@ -27,19 +30,30 @@ int32 AxPlayerController::ShowSelectTeam_Implementation()
 	return 1;
 }
 
-int32 AxPlayerController::SpawnPlayer_Implementation(TSubclassOf<AxBaseCharacter> PlayerToSpawnType, FTransform PlayerToSpawnTransform)
+int32 AxPlayerController::SpawnPlayer_Implementation(TSubclassOf<AxBaseCharacter> PlayerToSpawnType, FTransform PlayerToSpawnTransform, FName PlayerTypeName)
 {
 	FActorSpawnParameters spawnParams;
-	/*spawnParams.Owner = this;
-	spawnParams.Instigator = this;*/
-	spawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+	spawnParams.Owner = this;
+	//spawnParams.Instigator = this;
+	spawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 	AxBaseCharacter* SpawnedPlayer = GetWorld()->SpawnActor<AxBaseCharacter>(PlayerToSpawnType, PlayerToSpawnTransform, spawnParams);
 	
+	
+	GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, PlayerTypeName.ToString());
+	
+	// Needs an event call here or to override to control the posses lifecycle
 	Possess(SpawnedPlayer);
 
 	// hide mouse on client
 	ClientHideMouse();
+
+	// Override transform on clients
+	ClientSetSpawnTransform(PlayerToSpawnTransform);
+
+	SpawnedPlayer->ClientSetPlayerTypeName(PlayerTypeName);
+	//// Set top down default view
+	SpawnedPlayer->MulticastSetTopDownViewSettings();
 	
 	return 1;
 }
@@ -106,6 +120,11 @@ void AxPlayerController::ClientShowTeamSelection_Implementation()
 
 	/*GetWorldTimerManager().ClearTimer(ShowTeamSelectionWidgetTimerHandle);*/
 	
+}
+
+void AxPlayerController::ClientSetSpawnTransform_Implementation(FTransform Transform)
+{
+	SetControlRotation(Transform.GetRotation().Rotator());
 }
 
 void AxPlayerController::ClientHideMouse_Implementation()

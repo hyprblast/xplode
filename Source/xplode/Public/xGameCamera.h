@@ -18,6 +18,11 @@ public:
 	AxGameCamera();
 	virtual void Tick(float DeltaTime) override;
 
+	/*UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+		UStaticMeshComponent* SphereComp;
+	
+	UPROPERTY()
+		UStaticMesh* SphereStaticMeshObject;*/
 	UPROPERTY()
 		AActor* FollowActor;
 

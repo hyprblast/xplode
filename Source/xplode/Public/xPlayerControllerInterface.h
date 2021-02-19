@@ -22,7 +22,7 @@ public:
 		int32 ShowSelectTeam();
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 SpawnPlayer(TSubclassOf<AxBaseCharacter> PlayerToSpawn, FTransform PlayerToSpawnTransform);
+		int32 SpawnPlayer(TSubclassOf<AxBaseCharacter> PlayerToSpawn, FTransform PlayerToSpawnTransform, FName PlayerTypeName);
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SelectPlayerType(FName TypeName);

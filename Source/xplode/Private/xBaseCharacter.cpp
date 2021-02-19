@@ -22,7 +22,7 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include <Engine/Blueprint.h>
+#include "Engine/Blueprint.h"
 #include "xplodeGameStateBase.h"
 
 
@@ -50,8 +50,9 @@ AxBaseCharacter::AxBaseCharacter()
 	CameraComp->SetWorldLocation(FVector(0, 0, 70.0f));
 	/*CameraComp->bUsePawnControlRotation = false;*/
 	CameraComp->SetupAttachment(CapsuleComp);
+	CameraComp->SetIsReplicated(true);
 
-	
+
 
 
 	SkeletalMeshComp = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FPArms"));
@@ -63,6 +64,10 @@ AxBaseCharacter::AxBaseCharacter()
 	SkeletalMeshComp->SetCollisionProfileName(TEXT("xBalllMeshNoCollision"));
 	SkeletalMeshComp->CanCharacterStepUp(false);
 
+	UCharacterMovementComponent* const MovementComponent = GetCharacterMovement();
+
+	MovementComponent->SetIsReplicated(true);
+	MovementComponent->bUseControllerDesiredRotation = true;
 
 	/*GetCharacterMovement()->PushForceFactor =0;
 	GetCharacterMovement()->InitialPushForceFactor = 0;
@@ -71,6 +76,9 @@ AxBaseCharacter::AxBaseCharacter()
 	GetCapsuleComponent()->SetSimulatePhysics(false);*/
 
 	Tags.Add(FName("Player"));
+
+	bReplicates = true;
+	SetReplicateMovement(true);
 
 	
 	/*static ConstructorHelpers::FObjectFinder<UBlueprint> GameCameraBP(TEXT("Blueprint'/Game/_Main/Actors/Blueprints/BP_GameCamera.BP_GameCamera'"));
@@ -94,11 +102,13 @@ bool AxBaseCharacter::GetPlayerIsInCatchMode_Implementation()
 	return bIsCatchMode;
 }
 
+
 int32 AxBaseCharacter::SetPlayerIsThrowing_Implementation(bool bPlayerIsThrowing)
 {
 	ServerSetPLayerIsThrowing(bPlayerIsThrowing);
 	return 1;
 }
+
 
 int32 AxBaseCharacter::ThrowBall_Implementation()
 {
@@ -143,27 +153,44 @@ void AxBaseCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
+	GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("BeginPlay"));
+
 	LoadDynamicRefs();
 
 	OnTakeAnyDamage.AddDynamic(this, &AxBaseCharacter::HandleTakeAnyDamage);
 
-	if (IsLocallyControlled())
-	{
-		CameraVieww = UxCameraView::TopDown;
+	MulticastSetTopDownViewSettings(); 
 
-		FTimerHandle UUnusedHandle;
-		GetWorldTimerManager().SetTimer(
-			UUnusedHandle, this, &AxBaseCharacter::SetTopDownCamera, 0.01f, false);
-	}
+	/*FindTopDownCamera();
+
+	MulticastSetTopDownViewSettings();*/
+
 }
 
 //void AxBaseCharacter::Restart()
 //{
-//	// Restart on server happens after possess.
-//	if (HasAuthority())
+//	//Called when the Pawn is being restarted(usually by being possessed by a Controller).
+//
+//	Super::Restart();
+//	
+//	/*if (IsLocallyControlled())
 //	{
-//		ClientSetTopDownCamera();
-//	}
+//		FindTopDownCamera();
+//	}*/
+//	
+//	/*if (HasAuthority())
+//	{
+//		MulticastSetTopDownViewSettings();
+//	}*/
+//	
+//}
+
+//void AxBaseCharacter::PossessedBy(AController* NewController)
+//{
+//	//Called when this Pawn is possessed.Only called on the server(or in standalone).
+//	Super::PossessedBy(NewController);
+//
+//	FindTopDownCamera();
 //}
 
 void AxBaseCharacter::HandleTakeAnyDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser)
@@ -188,7 +215,6 @@ void AxBaseCharacter::Tick(float DeltaTime)
 			}
 		}
 	}
-	
 }
 
 void AxBaseCharacter::MoveFoward(float Value)
@@ -219,6 +245,20 @@ void AxBaseCharacter::MoveRight(float Value)
 	AddMovementInput(Direction, Value);
 }
 
+
+void AxBaseCharacter::FindTopDownCamera()
+{
+	
+	TArray<AActor*> FoundCamActors;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AxGameCamera::StaticClass(), FoundCamActors);
+
+	if (FoundCamActors.Num() == 2)
+	{
+		TopDownCam = PlayerTypeName == TEXT("Blue") ? Cast<AxGameCamera>(FoundCamActors[1]) : Cast<AxGameCamera>(FoundCamActors[0]);
+	}
+}
+
+
 void AxBaseCharacter::AttachBallToTPVMesh()
 {
 	bHasBall = true;
@@ -245,70 +285,7 @@ void AxBaseCharacter::AttachBallToTPVMesh()
 	/*Ball->SetActorTransform(TPVSocketTransform);*/
 }
 
-void AxBaseCharacter::SetFPVCamera()
-{
 
-	//Find the actor that handles control for the local player.
-	APlayerController* OurPlayerController = UGameplayStatics::GetPlayerController(this, 0);
-
-	//Smoothly transition to our actor on begin play.
-	OurPlayerController->SetViewTargetWithBlend(this, .5f);
-
-	CameraComp->bUsePawnControlRotation = true;
-	bUseControllerRotationYaw = true;
-	GetCharacterMovement()->bOrientRotationToMovement = false;
-
-	
-}
-
-
-void AxBaseCharacter::SetTopDownCamera()
-{
-	AxplodeGameStateBase* GameState = Cast<AxplodeGameStateBase>(GetWorld()->GetGameState());
-
-	if (IsValid(GameState) && IsValid(GameState->GameCamera))
-	{
-		/*Find the actor that handles control for the local player.*/
-		APlayerController* OurPlayerController = UGameplayStatics::GetPlayerController(this, 0);
-
-		//Smoothly transition to top down camera.
-		OurPlayerController->SetViewTargetWithBlend(GameState->GameCamera, .5f);
-
-		bUseControllerRotationYaw = false;
-		bUseControllerRotationPitch = false;
-		bUseControllerRotationRoll = false;
-
-		GetCharacterMovement()->bOrientRotationToMovement = true;
-
-		//UCharacterMovementComponent* const MovementComponent = GetCharacterMovement();
-		//if (MovementComponent)
-		//{
-		//	MovementComponent->bOrientRotationToMovement = true;
-		//	/*MovementComponent->bUseControllerDesiredRotation = false;*/
-		///*	MovementComponent->RotationRate = FRotator(0.0f,540.0f, 0.0f);*/
-		//	/*MovementComponent->bAllowPhysicsRotationDuringAnimRootMotion = true;*/
-
-		//}
-
-		/*GetCharacterMovement()->bOrientRotationToMovement = true;
-
-		bUseControllerRotationYaw = false;*/
-
-		/*GetCharacterMovement()->bUseControllerDesiredRotation = true;
-
-		GetMesh()->SetRelativeRotation(CombatModeCharacterRotation);*/
-	}
-	
-
-	/*if (!IsValid(GameCamera))
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("NO CAMERA"));
-	}*/
-
-
-	SkeletalMeshComp->SetHiddenInGame(true);
-	GetMesh()->bOwnerNoSee = false;
-}
 
 void AxBaseCharacter::TempChangeCollision(AxBallProjectileBase* BallProjectile)
 {
@@ -344,7 +321,9 @@ void AxBaseCharacter::Turn(float Value)
 		InputAxisYawValue = Value;
 		AxBaseCharacter::AddControllerYawInput(Value);
 	}
-	
+
+
+
 }
 
 void AxBaseCharacter::PlayThrowBallAnim()
@@ -387,12 +366,10 @@ void AxBaseCharacter::CamToggle()
 	switch (CameraVieww)
 	{
 	case UxCameraView::FirstPerson:
-		CameraVieww = UxCameraView::TopDown;
-		SetTopDownCamera();
+		ServerSetTopDownViewSettings();
 		break;
 	case UxCameraView::TopDown:
-		CameraVieww = UxCameraView::FirstPerson;
-		SetFPVCamera();
+		ServerSetFirstPersonViewSettings();
 		break;
 	default:
 		break;
@@ -421,10 +398,6 @@ bool AxBaseCharacter::ServerSetCatchMode_Validate()
 	return true;
 }
 
-//void AxBaseCharacter::ClientSetTopDownCamera_Implementation()
-//{
-//	SetTopDownCamera();
-//}
 
 void AxBaseCharacter::IncreaseThrowPower()
 {
@@ -452,6 +425,103 @@ void AxBaseCharacter::ServerIncreaseThrowPower_Implementation()
 bool AxBaseCharacter::ServerIncreaseThrowPower_Validate()
 {
 	return true;
+}
+
+void AxBaseCharacter::ServerSetFirstPersonViewSettings_Implementation()
+{
+	MulticastSetFirstPersonViewSettings();
+}
+
+bool AxBaseCharacter::ServerSetFirstPersonViewSettings_Validate()
+{
+	return true;
+}
+
+void AxBaseCharacter::ServerSetTopDownViewSettings_Implementation()
+{
+	MulticastSetTopDownViewSettings();
+}
+
+
+bool AxBaseCharacter::ServerSetTopDownViewSettings_Validate()
+{
+	return true;
+}
+
+void AxBaseCharacter::MulticastSetFirstPersonViewSettings_Implementation()
+{
+	CameraComp->bUsePawnControlRotation = true;
+	bUseControllerRotationYaw = true;
+	GetCharacterMovement()->bOrientRotationToMovement = false;
+
+
+	if (HasAuthority())
+	{
+		SkeletalMeshComp->SetHiddenInGame(false);
+		GetMesh()->bOwnerNoSee = true;
+
+		ClientActivateFirstPersonViewCam();
+	}
+}
+
+void AxBaseCharacter::MulticastSetTopDownViewSettings_Implementation()
+{
+	bUseControllerRotationYaw = false;
+	bUseControllerRotationPitch = false;
+	bUseControllerRotationRoll = false;
+
+	UCharacterMovementComponent* const MovementComponent = GetCharacterMovement();
+
+	if (MovementComponent)
+	{
+		MovementComponent->bOrientRotationToMovement = true;
+		MovementComponent->bUseControllerDesiredRotation = false;
+		MovementComponent->RotationRate = FRotator(0.0f, 840.0f, 0.0f);
+		MovementComponent->bAllowPhysicsRotationDuringAnimRootMotion = true;
+
+	}
+
+	
+
+	if (HasAuthority())
+	{
+		SkeletalMeshComp->SetHiddenInGame(true);
+		GetMesh()->bOwnerNoSee = false;
+		ClientActivateTopDownViewCam();
+	}
+}
+
+void AxBaseCharacter::ClientActivateTopDownViewCam_Implementation()
+{
+	if (IsLocallyControlled())
+	{
+		CameraVieww = UxCameraView::TopDown;
+
+		if (!IsValid(TopDownCam))
+		{
+			FindTopDownCamera();
+		}
+
+		APlayerController* OurPlayerController = UGameplayStatics::GetPlayerController(this, 0);
+		OurPlayerController->SetViewTargetWithBlend(TopDownCam, .5f);
+
+	}
+}
+
+void AxBaseCharacter::ClientSetPlayerTypeName_Implementation(FName TypeName)
+{
+	PlayerTypeName = TypeName;
+}
+
+void AxBaseCharacter::ClientActivateFirstPersonViewCam_Implementation()
+{
+	if (IsLocallyControlled())
+	{
+		CameraVieww = UxCameraView::FirstPerson;
+
+		APlayerController* OurPlayerController = UGameplayStatics::GetPlayerController(this, 0);
+		OurPlayerController->SetViewTargetWithBlend(this, .5f);
+	}
 }
 
 void AxBaseCharacter::ServerPlayTPVThrowBallAnim_Implementation()
@@ -484,12 +554,6 @@ void AxBaseCharacter::MulticastPlayTPVPickupAnimation_Implementation()
 
 void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraLocation, FVector CameraFowardVector)
 {
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Yellow, TEXT("ServerThrowBall_Implementation"));
-	}
-
-
 	FHitResult Hit;
 	/*FName SocketName = TEXT("hand_socket");*/
 	FVector TraceStart = CameraLocation;
@@ -509,18 +573,14 @@ void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraLocation, FVe
 
 
 	AxBallProjectileBase* ProjectileBall = GetWorld()->SpawnActor<AxBallProjectileBase>(AxBallProjectileBase::StaticClass(), ThrowTo, SpawnParams);
-	/*ProjectileBall->AddCollision();*/
+	ProjectileBall->AddSelfAsCameraTarget();
 	ProjectileBall->SphereComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	
 	//Ignore the spawner of this projectile
 	ProjectileBall->SphereComp->MoveIgnoreActors.Add(this);
 	ProjectileBall->AddCollision();
 	ProjectileBall->Shoot(CameraFowardVector * (ThrowPower > MaxThrowPower ? MaxThrowPower : ThrowPower));
 	DestroyBalls();
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Yellow, FString::SanitizeFloat(ThrowPower));
-	}
-
 
 	/*TimerDel.BindUFunction(this, FName("TempChangeCollision"), ProjectileBall);
 	GetWorldTimerManager().SetTimer(TimerHandle, TimerDel, 0.04f, false);*/
@@ -812,5 +872,6 @@ void AxBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(AxBaseCharacter, MaxThrowPower);
 	DOREPLIFETIME(AxBaseCharacter, Health);
 	DOREPLIFETIME(AxBaseCharacter, bIsAddingThrowPower);
+	
 }
 

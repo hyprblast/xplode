@@ -35,7 +35,6 @@ AxBallBase::AxBallBase()
 
 	bReplicates = true;
 	SetReplicateMovement(true);
-
 }
 
 //void AxBallBase::CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, class AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -80,16 +79,6 @@ void AxBallBase::BeginPlay()
 	if (HasAuthority())
 	{
 		SetStaticMesh();
-	}
-	else 
-	{
-		AxplodeGameStateBase* GameState = Cast<AxplodeGameStateBase>(GetWorld()->GetGameState());
-
-		if (IsValid(GameState) && IsValid(GameState->GameCamera))
-		{
-			GameState->GameCamera->FollowActor = this;
-		}
-
 	}
 }
 
@@ -171,6 +160,22 @@ void AxBallBase::StartTimer()
 	bIsExplodeMode = true;
 	GetWorldTimerManager().SetTimer(
 		ExplodeLevelIncrementTimerHandle, this, &AxBallBase::OnTimerElapsed, 1.0f, true);
+}
+
+void AxBallBase::AddSelfAsCameraTarget()
+{
+	TArray<AActor*> FoundCameras;
+
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AxGameCamera::StaticClass(), FoundCameras);
+
+	if (FoundCameras.Num() == 2)
+	{
+		AxGameCamera* Cam1 = Cast<AxGameCamera>(FoundCameras[0]);
+		AxGameCamera* Cam2 = Cast<AxGameCamera>(FoundCameras[1]);
+
+		Cam1->FollowActor = this;
+		Cam2->FollowActor = this;
+	}
 }
 
 void AxBallBase::AddOverlap()

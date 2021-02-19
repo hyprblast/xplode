@@ -34,11 +34,13 @@ void AxplodeGameModeBase::RequestSpawnPlayerType(FName TypeName, APlayerControll
 		int32 PlayerUIClassIndex = TypeName == TEXT("Blue") ? 0 : 1;
 
 		FTransform Transform = TypeName == TEXT("Blue") ? BlueSpanwPoints[Rand]->GetTransform() : RedSpawnPoints[Rand]->GetTransform();
+		FRotator Rotator = FRotator(0, TypeName == TEXT("Blue") ? -90.f : 90.f, 0);
+		Transform.SetRotation(Rotator.Quaternion());
 
 		if (PlayerController->GetClass()->ImplementsInterface(UxPlayerControllerInterface::StaticClass()))
 		{
 			//UE_LOG(LogTemp, Log, TEXT("Post Login"));
-			IxPlayerControllerInterface::Execute_SpawnPlayer(PlayerController, PlayerUIClasses[PlayerUIClassIndex], Transform);
+			IxPlayerControllerInterface::Execute_SpawnPlayer(PlayerController, PlayerUIClasses[PlayerUIClassIndex], Transform, TypeName);
 		}
 	}
 }
