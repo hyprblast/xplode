@@ -23,20 +23,22 @@
 // Sets default values
 AxBallProjectileBase::AxBallProjectileBase()
 {
-	PrimaryActorTick.bCanEverTick = true;
-	
+	PrimaryActorTick.bCanEverTick = false;
+
 	SphereCollisionComp = CreateDefaultSubobject<USphereComponent>(TEXT("SphereCollision"));
 	SphereCollisionComp->SetGenerateOverlapEvents(false);
 	SphereCollisionComp->CastShadow = false;
 	SphereCollisionComp->SetWalkableSlopeOverride(FWalkableSlopeOverride(WalkableSlope_Unwalkable, 0.f));
 	SphereCollisionComp->CanCharacterStepUpOn = ECB_No;
-	SphereCollisionComp->SetNotifyRigidBodyCollision(false);
-	
+	SphereCollisionComp->SetNotifyRigidBodyCollision(true);
+	SphereCollisionComp->SetCollisionObjectType(XBALLPROJECTILEOBJECT_CHANNEL);
+	SphereCollisionComp->SetCollisionProfileName(TEXT("xBallProjectileCollision"));
+
 	SphereCollisionComp->SetIsReplicated(true);
 	SphereCollisionComp->SetSphereRadius(20.f);
 
 
-	
+
 	ProjectileMovementComp = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
 	ProjectileMovementComp->SetIsReplicated(true);
 	ProjectileMovementComp->bAutoActivate = false;
@@ -47,12 +49,15 @@ AxBallProjectileBase::AxBallProjectileBase()
 	SphereStaticMeshComp->CastShadow = false;
 	SphereStaticMeshComp->SetNotifyRigidBodyCollision(false);
 	SphereStaticMeshComp->SetIsReplicated(true);
-	SphereCollisionComp->SetCollisionObjectType(XBALLPROJECTILEOBJECT_CHANNEL);
-	SphereCollisionComp->SetCollisionProfileName(TEXT("xBallProjectileCollision"));
-	
+	SphereStaticMeshComp->SetWalkableSlopeOverride(FWalkableSlopeOverride(WalkableSlope_Unwalkable, 0.f));
+	SphereStaticMeshComp->CanCharacterStepUpOn = ECB_No;
+	SphereStaticMeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+
+
 	// center mesh on sphere collision
-	SphereStaticMeshComp->SetWorldLocation(FVector(0, 10.5f, 0)); 
-	
+	SphereStaticMeshComp->SetWorldLocation(FVector(0, 10.5f, 0));
+
 	/*UPhysicalMaterial* PM = Cast<UPhysicalMaterial>(StaticLoadObject(UPhysicalMaterial::StaticClass(), NULL, TEXT("PhysicalMaterial'/Game/_Main/GameStuff/NoFriction.NoFriction'")));
 	SphereStaticMeshComp->SetPhysMaterialOverride(PM);*/
 
@@ -61,7 +66,7 @@ AxBallProjectileBase::AxBallProjectileBase()
 	//Cannot be stepped on
 	SphereStaticMeshComp->SetWalkableSlopeOverride(FWalkableSlopeOverride(WalkableSlope_Unwalkable, 0.f));
 	SphereStaticMeshComp->CanCharacterStepUpOn = ECB_No;
-	
+
 
 	SetRootComponent(SphereCollisionComp);
 
@@ -77,25 +82,24 @@ AxBallProjectileBase::AxBallProjectileBase()
 	ProjectileMovementComp->bRotationRemainsVertical = true;
 	ProjectileMovementComp->bShouldBounce = true;
 	ProjectileMovementComp->Bounciness = 0.6f;
-	
+
 
 	/*NetUpdateFrequency = 2000.f;*/
 	//MinNetUpdateFrequency = 20.f;
 
 }
 
-void AxBallProjectileBase::AddCollision()
+void AxBallProjectileBase::RemoveCollision()
 {
-	SphereCollisionComp->SetCollisionObjectType(XBALLPROJECTILEOBJECT_CHANNEL);
-	SphereCollisionComp->SetCollisionProfileName(TEXT("xBallProjectileCollision"));
-	SphereCollisionComp->SetNotifyRigidBodyCollision(true);
+	SphereCollisionComp->SetNotifyRigidBodyCollision(false);
+	SphereCollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
 
-void AxBallProjectileBase::MulticastPlayCoolDownSound_Implementation()
-{
-	AudioComponent = UGameplayStatics::SpawnSoundAtLocation(GetWorld(), CoolDownSoundFx, GetActorLocation());
-}
+//void AxBallProjectileBase::MulticastPlayCoolDownSound_Implementation()
+//{
+//	AudioComponent = UGameplayStatics::SpawnSoundAtLocation(GetWorld(), CoolDownSoundFx, GetActorLocation());
+//}
 
 void AxBallProjectileBase::Shoot(FVector Velocity)
 {
@@ -103,7 +107,7 @@ void AxBallProjectileBase::Shoot(FVector Velocity)
 	ProjectileMovementComp->Velocity = ProjectileVelocity;
 	/*ProjectileMovementComp->HomingAccelerationMagnitude = 50000;*/
 
-	
+
 
 	ProjectileMovementComp->Activate();
 	/*ProjectileMovementComp->MaxSpeed = 2000;
@@ -113,7 +117,7 @@ void AxBallProjectileBase::Shoot(FVector Velocity)
 }
 
 
-void AxBallProjectileBase::AddSelfAsCameraTarget()
+void AxBallProjectileBase::MulticastAddSelfAsCameraTarget_Implementation()
 {
 	TArray<AActor*> FoundCameras;
 
@@ -127,6 +131,12 @@ void AxBallProjectileBase::AddSelfAsCameraTarget()
 		Cam1->FollowActor = this;
 		Cam2->FollowActor = this;
 	}
+}
+
+void AxBallProjectileBase::AutoDestroyAfterSecs(float Seconds)
+{
+	GetWorldTimerManager().SetTimer(
+		AutoDestroyTimerHandle, this, &AxBallProjectileBase::AutoDestroy, Seconds, false);
 }
 
 //void AxBallProjectileBase::Tick(float DeltaTime)
@@ -150,21 +160,16 @@ void AxBallProjectileBase::OnCompHit(UPrimitiveComponent* HitComp, AActor* Other
 		{
 			if (ProjectileMovementComp->Velocity.IsNearlyZero() || IxBaseCharacterInterface::Execute_GetPlayerIsInCatchMode(OtherActor))
 			{
-				if (ActorHasTag("ClientSpawn"))
-				{
-					GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("ClientSpawn"));
-				}
-
 				IxBaseCharacterInterface::Execute_PickupBall(OtherActor);
 				Destroy();
 			}
-			
+
 			//IxBaseCharacterInterface::Execute_AttachBall(OtherActor);
 			//Destroy();
 
 		}
-		
-		
+
+
 		//if (OtherActor->ActorHasTag(FName("Player")))
 		//{
 		//	// Catch ball directly if facing ball
@@ -193,11 +198,11 @@ void AxBallProjectileBase::OnCompHit(UPrimitiveComponent* HitComp, AActor* Other
 
 			//	}
 			//}
-		
-		
-		
-		
-		
+
+
+
+
+
 	}
 
 	//if (HasAuthority() && OtherActor->ActorHasTag(FName("Player")) && !bMarkedForDestroy)
@@ -220,9 +225,10 @@ void AxBallProjectileBase::BeginPlay()
 	{
 		SetStaticMesh();
 		SphereCollisionComp->OnComponentHit.AddDynamic(this, &AxBallProjectileBase::OnCompHit);
+		MulticastAddSelfAsCameraTarget();
 	}
 
-	LoadDynamicRefs();
+	/*LoadDynamicRefs();*/
 }
 
 void AxBallProjectileBase::PostNetReceiveLocationAndRotation()
@@ -241,10 +247,10 @@ void AxBallProjectileBase::MulticastServerTransform_Implementation(FTransform Se
 	ProjectileMovementComp->Velocity = ServerVelocity;
 }
 
-void AxBallProjectileBase::LoadDynamicRefs()
-{
-	CoolDownSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/SciFiWeaponsCyberpunkArsenal/cues/Support_Material/Cooldown/SCIMisc_Cooldown_01_Cue.SCIMisc_Cooldown_01_Cue'")));
-}
+//void AxBallProjectileBase::LoadDynamicRefs()
+//{
+//	CoolDownSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/SciFiWeaponsCyberpunkArsenal/cues/Support_Material/Cooldown/SCIMisc_Cooldown_01_Cue.SCIMisc_Cooldown_01_Cue'")));
+//}
 
 
 void AxBallProjectileBase::SetStaticMesh()
@@ -257,16 +263,11 @@ void AxBallProjectileBase::SetStaticMesh()
 }
 
 
-void AxBallProjectileBase::StopCoolDown()
+void AxBallProjectileBase::AutoDestroy()
 {
-	bNeedsCoolDown = false;
-	
-	if (IsValid(AudioComponent))
-	{
-		AudioComponent->SetActive(false);
-	}
+	GetWorld()->GetTimerManager().ClearTimer(AutoDestroyTimerHandle);
+	Destroy();
 }
-
 
 
 void AxBallProjectileBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

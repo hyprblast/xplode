@@ -33,19 +33,13 @@ public:
 		void OnCompHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
 	UFUNCTION()
-		void AddCollision();
-
-	UFUNCTION(NetMulticast, Reliable)
-		void MulticastPlayCoolDownSound();
+		void RemoveCollision();
 
 	UFUNCTION()
 		void Shoot(FVector Velocity);
 
 	UFUNCTION()
-		void AddSelfAsCameraTarget();
-
-	UPROPERTY()
-		bool bCoolDownStarted;
+		void AutoDestroyAfterSecs(float Seconds);
 
 	UPROPERTY(Replicated)
 		FVector ProjectileVelocity;
@@ -61,9 +55,6 @@ public:
 
 	UPROPERTY()
 		UStaticMesh* SphereStaticMeshObject;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
-		USoundCue* CoolDownSoundFx;
 
 
 	/*virtual void Tick(float DeltaTime) override;*/
@@ -82,12 +73,12 @@ protected:
 	UFUNCTION(NetMulticast, Unreliable)
 	void MulticastServerTransform(FTransform ServerTransform, FVector ServerVelocity);
 
+	UFUNCTION(NetMulticast, Reliable)
+		void MulticastAddSelfAsCameraTarget();
+
 private:
 	UPROPERTY()
-		FTimerHandle CoolDownTimerHandle;
-
-	UPROPERTY()
-		bool bNeedsCoolDown;
+		FTimerHandle AutoDestroyTimerHandle;
 
 	UPROPERTY()
 		UAudioComponent* AudioComponent;
@@ -96,10 +87,10 @@ private:
 		void SetStaticMesh();
 
 	UFUNCTION()
-		void StopCoolDown();
+		void AutoDestroy();
 
-	UFUNCTION()
-		void LoadDynamicRefs();
+	/*UFUNCTION()
+		void LoadDynamicRefs();*/
 
 
 	/*UFUNCTION()

@@ -37,7 +37,7 @@ AxGameCamera::AxGameCamera()
 
 void AxGameCamera::Tick(float DeltaTime)
 {
-	if (IsValid(FollowActor)) // this object is spawned on client so in here will be the client
+	if (IsValid(FollowActor)) 
 	{
 		if (IsValid(FollowActor))
 		{
@@ -45,7 +45,7 @@ void AxGameCamera::Tick(float DeltaTime)
 			FVector BallLocation = FollowActor->GetActorLocation();
 			FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(CamLocation, BallLocation);
 
-			//SetActorRotation(UKismetMathLibrary::RInterpTo(GetActorRotation(), LookAtRotation, DeltaTime, 2.f));
+			SetActorRotation(UKismetMathLibrary::RInterpTo(GetActorRotation(), LookAtRotation, DeltaTime, 2.f));
 			//SetActorLocation(FMath::Lerp(CamLocation, FVector(CamLocation.X, CamLocation.Y, CamLocation.Z), 0.01f));
 		}
 	}

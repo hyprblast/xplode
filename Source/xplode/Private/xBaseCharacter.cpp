@@ -289,7 +289,7 @@ void AxBaseCharacter::AttachBallToTPVMesh()
 
 void AxBaseCharacter::TempChangeCollision(AxBallProjectileBase* BallProjectile)
 {
-	BallProjectile->AddCollision();
+	//BallProjectile->AddCollision();
 }
 
 AxBallBase* AxBaseCharacter::SpawnBall(FTransform SpawnLocation)
@@ -573,16 +573,18 @@ void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraLocation, FVe
 
 
 	AxBallProjectileBase* ProjectileBall = GetWorld()->SpawnActor<AxBallProjectileBase>(AxBallProjectileBase::StaticClass(), ThrowTo, SpawnParams);
-	ProjectileBall->AddSelfAsCameraTarget();
-	ProjectileBall->SphereCollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	
+	//ProjectileBall->SphereCollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	
 	//Ignore the spawner of this projectile
 	ProjectileBall->SphereCollisionComp->MoveIgnoreActors.Add(this);
-	ProjectileBall->AddCollision();
+	//ProjectileBall->AddCollision();
 	/*ProjectileBall->SetActorHiddenInGame(true);*/
+
 	ProjectileBall->Shoot(CameraFowardVector * (ThrowPower > MaxThrowPower ? MaxThrowPower : ThrowPower));
-	
-	/*ClientThrowBall(CameraLocation, CameraFowardVector);*/
+
+	// To avoid the initial lag...destroy after .2s;
+	//ClientThrowBall(CameraLocation, CameraFowardVector);
 	
 	DestroyBalls();
 
@@ -797,13 +799,15 @@ void AxBaseCharacter::ClientThrowBall_Implementation(FVector CameraLocation, FVe
 
 
 	AxBallProjectileBase* ProjectileBall = GetWorld()->SpawnActor<AxBallProjectileBase>(AxBallProjectileBase::StaticClass(), ThrowTo, SpawnParams);
-	ProjectileBall->AddSelfAsCameraTarget();
-	ProjectileBall->SphereCollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	/*ProjectileBall->AddSelfAsCameraTarget();*/
+	//ProjectileBall->SphereCollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	ProjectileBall->Tags.Add("ClientSpawn");
 	//Ignore the spawner of this projectile
 	ProjectileBall->SphereCollisionComp->MoveIgnoreActors.Add(this);
-	ProjectileBall->AddCollision();
+	//ProjectileBall->AddCollision();
+	
 	ProjectileBall->Shoot(CameraFowardVector * (ThrowPower > MaxThrowPower ? MaxThrowPower : ThrowPower));
+	ProjectileBall->AutoDestroyAfterSecs(0.04f);
 }
 
 void AxBaseCharacter::ServerSetPLayerIsThrowing_Implementation(bool bPlayerIsThrowing)

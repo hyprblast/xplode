@@ -58,7 +58,7 @@ void AxBallBase::NotifyActorBeginOverlap(AActor* OtherActor)
 		OtherActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()) &&
 		!IxBaseCharacterInterface::Execute_GetPlayerHasBall(OtherActor))
 	{
-		IxBaseCharacterInterface::Execute_PickupBall(OtherActor);
+		//IxBaseCharacterInterface::Execute_PickupBall(OtherActor, this);
 		Destroy();
 		//IxBaseCharacterInterface::Execute_AttachBall(OtherActor);
 		//Destroy();
