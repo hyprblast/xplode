@@ -17,49 +17,80 @@
 #include "xBaseCharacterInterface.h"
 #include <UObject/ConstructorHelpers.h>
 #include "Camera/CameraComponent.h"
+#include "Net/UnrealNetwork.h"
 #include "xplodeGameStateBase.h"
 
 // Sets default values
 AxBallProjectileBase::AxBallProjectileBase()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
+	
+	SphereCollisionComp = CreateDefaultSubobject<USphereComponent>(TEXT("SphereCollision"));
+	SphereCollisionComp->SetGenerateOverlapEvents(false);
+	SphereCollisionComp->CastShadow = false;
+	SphereCollisionComp->SetWalkableSlopeOverride(FWalkableSlopeOverride(WalkableSlope_Unwalkable, 0.f));
+	SphereCollisionComp->CanCharacterStepUpOn = ECB_No;
+	SphereCollisionComp->SetNotifyRigidBodyCollision(false);
+	
+	SphereCollisionComp->SetIsReplicated(true);
+	SphereCollisionComp->SetSphereRadius(20.f);
+
+
+	
 	ProjectileMovementComp = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
 	ProjectileMovementComp->SetIsReplicated(true);
 	ProjectileMovementComp->bAutoActivate = false;
 
 
-	SphereComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Sphere"));
-	SphereComp->SetGenerateOverlapEvents(false);
-	SphereComp->CastShadow = false;
-	SphereComp->SetNotifyRigidBodyCollision(false);
-	SphereComp->SetIsReplicated(true);
+	SphereStaticMeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Sphere"));
+	SphereStaticMeshComp->SetGenerateOverlapEvents(false);
+	SphereStaticMeshComp->CastShadow = false;
+	SphereStaticMeshComp->SetNotifyRigidBodyCollision(false);
+	SphereStaticMeshComp->SetIsReplicated(true);
+	SphereCollisionComp->SetCollisionObjectType(XBALLPROJECTILEOBJECT_CHANNEL);
+	SphereCollisionComp->SetCollisionProfileName(TEXT("xBallProjectileCollision"));
+	
+	// center mesh on sphere collision
+	SphereStaticMeshComp->SetWorldLocation(FVector(0, 10.5f, 0)); 
 	
 	/*UPhysicalMaterial* PM = Cast<UPhysicalMaterial>(StaticLoadObject(UPhysicalMaterial::StaticClass(), NULL, TEXT("PhysicalMaterial'/Game/_Main/GameStuff/NoFriction.NoFriction'")));
-	SphereComp->SetPhysMaterialOverride(PM);*/
+	SphereStaticMeshComp->SetPhysMaterialOverride(PM);*/
 
-	SphereComp->SetupAttachment(RootComponent);
+	SphereStaticMeshComp->SetupAttachment(SphereCollisionComp);
 
 	//Cannot be stepped on
-	SphereComp->SetWalkableSlopeOverride(FWalkableSlopeOverride(WalkableSlope_Unwalkable, 0.f));
-	SphereComp->CanCharacterStepUpOn = ECB_No;
+	SphereStaticMeshComp->SetWalkableSlopeOverride(FWalkableSlopeOverride(WalkableSlope_Unwalkable, 0.f));
+	SphereStaticMeshComp->CanCharacterStepUpOn = ECB_No;
+	
 
-
-	SetRootComponent(SphereComp);
+	SetRootComponent(SphereCollisionComp);
 
 	bReplicates = true;
 	SetReplicateMovement(true);
 
-	ProjectileMovementComp->UpdatedComponent = SphereComp;	
+
+	ProjectileMovementComp->UpdatedComponent = SphereCollisionComp;
+	ProjectileMovementComp->SetInterpolatedComponent(SphereStaticMeshComp);
+	ProjectileMovementComp->bInterpMovement = true;
+	ProjectileMovementComp->bInterpRotation = true;
+	/*ProjectileMovementComp->bRotationFollowsVelocity = true;*/
+	ProjectileMovementComp->bRotationRemainsVertical = true;
+	ProjectileMovementComp->bShouldBounce = true;
+	ProjectileMovementComp->Bounciness = 0.6f;
+	
+
+	/*NetUpdateFrequency = 2000.f;*/
+	//MinNetUpdateFrequency = 20.f;
 
 }
 
 void AxBallProjectileBase::AddCollision()
 {
-	SphereComp->SetCollisionObjectType(XBALLPROJECTILEOBJECT_CHANNEL);
-	SphereComp->SetCollisionProfileName(TEXT("xBallProjectileCollision"));
-	SphereComp->SetNotifyRigidBodyCollision(true);
-
+	SphereCollisionComp->SetCollisionObjectType(XBALLPROJECTILEOBJECT_CHANNEL);
+	SphereCollisionComp->SetCollisionProfileName(TEXT("xBallProjectileCollision"));
+	SphereCollisionComp->SetNotifyRigidBodyCollision(true);
 }
+
 
 void AxBallProjectileBase::MulticastPlayCoolDownSound_Implementation()
 {
@@ -68,16 +99,12 @@ void AxBallProjectileBase::MulticastPlayCoolDownSound_Implementation()
 
 void AxBallProjectileBase::Shoot(FVector Velocity)
 {
-	bNeedsCoolDown = true;
-	ProjectileMovementComp->Velocity = Velocity;
+	ProjectileVelocity = Velocity;
+	ProjectileMovementComp->Velocity = ProjectileVelocity;
 	/*ProjectileMovementComp->HomingAccelerationMagnitude = 50000;*/
-	ProjectileMovementComp->bRotationFollowsVelocity = true;
-	ProjectileMovementComp->bRotationRemainsVertical = true;
 
-	ProjectileMovementComp->bInterpMovement = true;
-	ProjectileMovementComp->bInterpRotation = true;
-	ProjectileMovementComp->bShouldBounce = true;
-	ProjectileMovementComp->Bounciness = 0.6f;
+	
+
 	ProjectileMovementComp->Activate();
 	/*ProjectileMovementComp->MaxSpeed = 2000;
 	ProjectileMovementComp->InitialSpeed = 2000;*/
@@ -102,6 +129,16 @@ void AxBallProjectileBase::AddSelfAsCameraTarget()
 	}
 }
 
+//void AxBallProjectileBase::Tick(float DeltaTime)
+//{
+//	Super::Tick(DeltaTime);
+//
+//	if (HasAuthority())
+//	{
+//		MulticastServerTransform(GetActorTransform(), ProjectileMovementComp->Velocity);
+//	}
+//}
+
 void AxBallProjectileBase::OnCompHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 	if (HasAuthority())
@@ -111,9 +148,13 @@ void AxBallProjectileBase::OnCompHit(UPrimitiveComponent* HitComp, AActor* Other
 			OtherActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()) &&
 			!IxBaseCharacterInterface::Execute_GetPlayerHasBall(OtherActor))
 		{
-			
 			if (ProjectileMovementComp->Velocity.IsNearlyZero() || IxBaseCharacterInterface::Execute_GetPlayerIsInCatchMode(OtherActor))
 			{
+				if (ActorHasTag("ClientSpawn"))
+				{
+					GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("ClientSpawn"));
+				}
+
 				IxBaseCharacterInterface::Execute_PickupBall(OtherActor);
 				Destroy();
 			}
@@ -174,14 +215,30 @@ void AxBallProjectileBase::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// SphereComponent is replicated so just set the staticmesh on server
+	// SphereStaticMeshComponent is replicated so just set the staticmesh on server
 	if (HasAuthority())
 	{
 		SetStaticMesh();
-		SphereComp->OnComponentHit.AddDynamic(this, &AxBallProjectileBase::OnCompHit);
+		SphereCollisionComp->OnComponentHit.AddDynamic(this, &AxBallProjectileBase::OnCompHit);
 	}
 
 	LoadDynamicRefs();
+}
+
+void AxBallProjectileBase::PostNetReceiveLocationAndRotation()
+{
+	/*if ((GetReplicatedMovement().Location == GetActorLocation() && GetReplicatedMovement().Rotation == GetActorRotation()) && (CreationTime != GetWorld()->TimeSeconds))
+	{
+		return;
+	}*/
+
+	ProjectileMovementComp->MoveInterpolationTarget(GetReplicatedMovement().Location, GetReplicatedMovement().Rotation);
+}
+
+void AxBallProjectileBase::MulticastServerTransform_Implementation(FTransform ServerTransform, FVector ServerVelocity)
+{
+	SetActorTransform(ServerTransform);
+	ProjectileMovementComp->Velocity = ServerVelocity;
 }
 
 void AxBallProjectileBase::LoadDynamicRefs()
@@ -195,7 +252,7 @@ void AxBallProjectileBase::SetStaticMesh()
 	SphereStaticMeshObject = Cast<UStaticMesh>(StaticLoadObject(UStaticMesh::StaticClass(), NULL, TEXT("StaticMesh'/Game/_Main/StaticMeshes/Orb/xOrb.xOrb'")));
 	if (IsValid(SphereStaticMeshObject))
 	{
-		SphereComp->SetStaticMesh(SphereStaticMeshObject);
+		SphereStaticMeshComp->SetStaticMesh(SphereStaticMeshObject);
 	}
 }
 
@@ -210,22 +267,13 @@ void AxBallProjectileBase::StopCoolDown()
 	}
 }
 
-AxBallBase* AxBallProjectileBase::SpawnBall(bool bAddOverlap, AActor* OtherActor)
+
+
+void AxBallProjectileBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-	FActorSpawnParameters SpawnParams;
-	SpawnParams.Owner = OtherActor;
-	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-
-	AxBallBase* Ball = GetWorld()->SpawnActor<AxBallBase>(AxBallBase::StaticClass(), GetTransform(), SpawnParams);
-	if (bAddOverlap)
-	{
-		Ball->AddOverlap();
-	}
-	
-	GetWorld()->GetTimerManager().ClearTimer(CoolDownTimerHandle);
-	return Ball; 
+	DOREPLIFETIME(AxBallProjectileBase, ProjectileVelocity);
 }
-
 
 

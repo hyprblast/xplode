@@ -17,6 +17,7 @@
 #include "Components/AudioComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
+#include "Components/SphereComponent.h"
 #include "xBallProjectileBase.generated.h"
 
 UCLASS()
@@ -44,10 +45,16 @@ public:
 		void AddSelfAsCameraTarget();
 
 	UPROPERTY()
-	bool bCoolDownStarted;
+		bool bCoolDownStarted;
+
+	UPROPERTY(Replicated)
+		FVector ProjectileVelocity;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-		UStaticMeshComponent* SphereComp;
+		USphereComponent* SphereCollisionComp;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+		UStaticMeshComponent* SphereStaticMeshComp;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 		UProjectileMovementComponent* ProjectileMovementComp;
@@ -58,12 +65,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
 		USoundCue* CoolDownSoundFx;
 
-	
 
-	
+	/*virtual void Tick(float DeltaTime) override;*/
 
-	////	// Called every frame
-	////	virtual void Tick(float DeltaTime) override;
+
 
 	//UFUNCTION()
 	//void CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, class AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
@@ -72,11 +77,15 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+	virtual void PostNetReceiveLocationAndRotation() override;
+
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastServerTransform(FTransform ServerTransform, FVector ServerVelocity);
 
 private:
 	UPROPERTY()
 		FTimerHandle CoolDownTimerHandle;
-	
+
 	UPROPERTY()
 		bool bNeedsCoolDown;
 
@@ -84,15 +93,12 @@ private:
 		UAudioComponent* AudioComponent;
 
 	UFUNCTION()
-		AxBallBase* SpawnBall(bool bAddOverlap, AActor* OtherActor);
-
-	UFUNCTION()
 		void SetStaticMesh();
 
 	UFUNCTION()
 		void StopCoolDown();
 
-		UFUNCTION()
+	UFUNCTION()
 		void LoadDynamicRefs();
 
 

@@ -269,8 +269,8 @@ void AxBaseCharacter::AttachBallToTPVMesh()
 	FName SocketName = TEXT("hand_socket");
 	USkeletalMeshComponent* TPVSkeletalMesh = GetMesh();
 
-	/*Ball->SphereComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);*/
-	/*Ball->SphereComp->SetGenerateOverlapEvents(false);*/
+	/*Ball->SphereCollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);*/
+	/*Ball->SphereCollisionComp->SetGenerateOverlapEvents(false);*/
 	/*Ball->SetOwner(this);*/
 	FAttachmentTransformRules TransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, true);
 	FTransform TPVSocketTransform = TPVSkeletalMesh->GetSocketTransform(SocketName, RTS_World);
@@ -574,12 +574,16 @@ void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraLocation, FVe
 
 	AxBallProjectileBase* ProjectileBall = GetWorld()->SpawnActor<AxBallProjectileBase>(AxBallProjectileBase::StaticClass(), ThrowTo, SpawnParams);
 	ProjectileBall->AddSelfAsCameraTarget();
-	ProjectileBall->SphereComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	ProjectileBall->SphereCollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	
 	//Ignore the spawner of this projectile
-	ProjectileBall->SphereComp->MoveIgnoreActors.Add(this);
+	ProjectileBall->SphereCollisionComp->MoveIgnoreActors.Add(this);
 	ProjectileBall->AddCollision();
+	/*ProjectileBall->SetActorHiddenInGame(true);*/
 	ProjectileBall->Shoot(CameraFowardVector * (ThrowPower > MaxThrowPower ? MaxThrowPower : ThrowPower));
+	
+	/*ClientThrowBall(CameraLocation, CameraFowardVector);*/
+	
 	DestroyBalls();
 
 	/*TimerDel.BindUFunction(this, FName("TempChangeCollision"), ProjectileBall);
@@ -755,8 +759,8 @@ void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraLocation, FVe
 		//	
 
 		//	/*TPVBall->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);*/
-		///*	TPVBall->SphereComp->SetSimulatePhysics(true);
-		//	TPVBall->SphereComp->AddImpulse(TraceEnd);*/
+		///*	TPVBall->SphereCollisionComp->SetSimulatePhysics(true);
+		//	TPVBall->SphereCollisionComp->AddImpulse(TraceEnd);*/
 
 		//	/*if (DamageToApply > 0)
 		//	{
@@ -770,6 +774,36 @@ void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraLocation, FVe
 bool AxBaseCharacter::ServerThrowBall_Validate(FVector CameraLocation, FVector CameraFowardVector)
 {
 	return true;//IsValid(TPVBall) && !TPVBall->bIsExploding;
+}
+
+void AxBaseCharacter::ClientThrowBall_Implementation(FVector CameraLocation, FVector CameraFowardVector)
+{
+	FHitResult Hit;
+	/*FName SocketName = TEXT("hand_socket");*/
+	FVector TraceStart = CameraLocation;
+	FVector TraceEnd = TraceStart + (CameraFowardVector * 10000);
+	/*FTransform SocketTransform = GetMesh()->GetSocketTransform(SocketName, RTS_World);*/
+	FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(CameraLocation, TraceEnd);
+	FTransform ThrowTo = UKismetMathLibrary::MakeTransform(CameraLocation, LookAtRotation, FVector(1.0f, 1.0f, 1.0f));
+
+
+	FTimerDelegate TimerDel;
+	FTimerHandle TimerHandle;
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = this;
+	SpawnParams.Instigator = this;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+
+	AxBallProjectileBase* ProjectileBall = GetWorld()->SpawnActor<AxBallProjectileBase>(AxBallProjectileBase::StaticClass(), ThrowTo, SpawnParams);
+	ProjectileBall->AddSelfAsCameraTarget();
+	ProjectileBall->SphereCollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	ProjectileBall->Tags.Add("ClientSpawn");
+	//Ignore the spawner of this projectile
+	ProjectileBall->SphereCollisionComp->MoveIgnoreActors.Add(this);
+	ProjectileBall->AddCollision();
+	ProjectileBall->Shoot(CameraFowardVector * (ThrowPower > MaxThrowPower ? MaxThrowPower : ThrowPower));
 }
 
 void AxBaseCharacter::ServerSetPLayerIsThrowing_Implementation(bool bPlayerIsThrowing)

@@ -11,16 +11,16 @@ AxBallSpawnerBase::AxBallSpawnerBase()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
-	SpawnerStaticMeshObject = Cast<UStaticMesh>(StaticLoadObject(UStaticMesh::StaticClass(), NULL, TEXT("StaticMesh'/Game/SuperGrid/StarterPack/Source/Meshes/SuperGrid_RingFull.SuperGrid_RingFull'")));
+	//SpawnerStaticMeshObject = Cast<UStaticMesh>(StaticLoadObject(UStaticMesh::StaticClass(), NULL, TEXT("StaticMesh'/Game/SuperGrid/StarterPack/Source/Meshes/SuperGrid_RingFull.SuperGrid_RingFull'")));
 
-	if (IsValid(SpawnerStaticMeshObject))
-	{
-		SpawnerComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Spawner"));
-		SpawnerComp->CanCharacterStepUp(false);
-		SpawnerComp->SetStaticMesh(SpawnerStaticMeshObject);
-		SpawnerComp->SetupAttachment(RootComponent);
-		SetRootComponent(SpawnerComp);
-	}
+	//if (IsValid(SpawnerStaticMeshObject))
+	//{
+	//	SpawnerComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Spawner"));
+	//	SpawnerComp->CanCharacterStepUp(false);
+	//	SpawnerComp->SetStaticMesh(SpawnerStaticMeshObject);
+	//	SpawnerComp->SetupAttachment(RootComponent);
+	//	SetRootComponent(SpawnerComp);
+	//}
 
 }
 
@@ -39,7 +39,7 @@ void AxBallSpawnerBase::SpawnBall()
 		SpawnParams.Owner = this;
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-		FTransform SpawnWhere = UKismetMathLibrary::MakeTransform(FVector(1534, 1467, 248), FRotator(0, 0, 0), FVector(1.0f, 1.0f, 1.0f));
+		FTransform SpawnWhere = GetActorTransform();//UKismetMathLibrary::MakeTransform(FVector(1534, 1467, 248), FRotator(0, 0, 0), FVector(1.0f, 1.0f, 1.0f));
 
 		AxBallProjectileBase* BallProjectile = GetWorld()->SpawnActor<AxBallProjectileBase>(AxBallProjectileBase::StaticClass(), SpawnWhere, SpawnParams);
 		BallProjectile->AddSelfAsCameraTarget();

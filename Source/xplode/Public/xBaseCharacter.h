@@ -30,7 +30,7 @@ public:
 		float ThrowPower = 0;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Defaults", Replicated)
-		float MaxThrowPower = 2000;
+		float MaxThrowPower = 3000;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Defaults", Replicated)
 		float Health = 100;
@@ -102,17 +102,22 @@ public:
 		int32 AttachBall();
 	virtual int32 AttachBall_Implementation() override;
 
-	//Called from client, executed on server, withvalidation is required for this
+	
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerThrowBall(FVector CameraLocation, FVector CameraFowardVector);
-	//Called from client, executed on server, withvalidation is required for this
+
+	UFUNCTION(Client, Reliable)
+		void ClientThrowBall(FVector CameraLocation, FVector CameraFowardVector);
+	
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerSetPLayerIsThrowing(bool bPlayerIsThrowing);
-	//Called from server, executed on each copies of the actor, including server
+	
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastPlayTPVThrowAnimation();
+	
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerPlayTPVThrowBallAnim();
+	
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastPlayTPVPickupAnimation();
 	
