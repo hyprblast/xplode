@@ -18,12 +18,31 @@ public:
 	AxGameCamera();
 	virtual void Tick(float DeltaTime) override;
 
+	UFUNCTION()
+	void SetTurnYaw(float TurnYawVal);
+
 	/*UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 		UStaticMeshComponent* SphereComp;
-	
+
 	UPROPERTY()
 		UStaticMesh* SphereStaticMeshObject;*/
 	UPROPERTY()
 		AActor* FollowActor;
 
+
+
+	
+
+protected:
+	virtual void BeginPlay() override;
+
+private:
+	UPROPERTY()
+	FRotator CamInitialRotation;
+	
+	UPROPERTY()
+		float TurnYaw;
+
+		UPROPERTY()
+		bool bShouldTurn;
 };

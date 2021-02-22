@@ -79,6 +79,7 @@ void AxBallBase::BeginPlay()
 	if (HasAuthority())
 	{
 		SetStaticMesh();
+		MulticastAddSelfAsCameraTarget();
 	}
 }
 
@@ -98,6 +99,22 @@ void AxBallBase::MulticastExplode_Implementation()
 void AxBallBase::ClientWarn_Implementation()
 {
 	AudioComponent = UGameplayStatics::SpawnSoundAtLocation(GetWorld(), WarningSoundFx, GetActorLocation());
+}
+
+void AxBallBase::MulticastAddSelfAsCameraTarget_Implementation()
+{
+	TArray<AActor*> FoundCameras;
+
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AxGameCamera::StaticClass(), FoundCameras);
+
+	if (FoundCameras.Num() == 2)
+	{
+		AxGameCamera* Cam1 = Cast<AxGameCamera>(FoundCameras[0]);
+		AxGameCamera* Cam2 = Cast<AxGameCamera>(FoundCameras[1]);
+
+		Cam1->FollowActor = this;
+		Cam2->FollowActor = this;
+	}
 }
 
 void AxBallBase::ClientStopWarn_Implementation()
@@ -162,21 +179,6 @@ void AxBallBase::StartTimer()
 		ExplodeLevelIncrementTimerHandle, this, &AxBallBase::OnTimerElapsed, 1.0f, true);
 }
 
-void AxBallBase::AddSelfAsCameraTarget()
-{
-	TArray<AActor*> FoundCameras;
-
-	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AxGameCamera::StaticClass(), FoundCameras);
-
-	if (FoundCameras.Num() == 2)
-	{
-		AxGameCamera* Cam1 = Cast<AxGameCamera>(FoundCameras[0]);
-		AxGameCamera* Cam2 = Cast<AxGameCamera>(FoundCameras[1]);
-
-		Cam1->FollowActor = this;
-		Cam2->FollowActor = this;
-	}
-}
 
 void AxBallBase::AddOverlap()
 {

@@ -10,6 +10,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Engine/StaticMesh.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Math/UnrealMathUtility.h"
 
 
 AxGameCamera::AxGameCamera()
@@ -42,13 +43,59 @@ void AxGameCamera::Tick(float DeltaTime)
 		if (IsValid(FollowActor))
 		{
 			FVector CamLocation = GetActorLocation();
+			FRotator CamRotation = GetActorRotation();
+
 			FVector BallLocation = FollowActor->GetActorLocation();
 			FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(CamLocation, BallLocation);
 
-			SetActorRotation(UKismetMathLibrary::RInterpTo(GetActorRotation(), LookAtRotation, DeltaTime, 2.f));
-			//SetActorLocation(FMath::Lerp(CamLocation, FVector(CamLocation.X, CamLocation.Y, CamLocation.Z), 0.01f));
+			float TargetYaw = CamRotation.Yaw + 45.f * TurnYaw;
+			TargetYaw = FMath::Clamp(TargetYaw, 45.f, 135.f);
+
+			if (TurnYaw == 0)
+			{
+				TargetYaw = 90.f;
+			}
+
+			/*GEngine->AddOnScreenDebugMessage(-1, .1f, FColor::Yellow, FString::SanitizeFloat(TargetYaw));*/
+
+			
+			SetActorRotation(UKismetMathLibrary::RInterpTo(CamRotation, FRotator(CamRotation.Pitch, TargetYaw, CamInitialRotation.Roll), DeltaTime, 2.f));
+
+
+
+
+			/*if (bShouldTurn && TurnYaw != CamRotation.Yaw)
+			{
+				
+			}*/
+			/*else
+			{
+				if (!bShouldTurn)
+				{
+					FRotator CurrentCamRotation = GetActorRotation();
+					SetActorRotation(UKismetMathLibrary::RInterpTo(CurrentCamRotation, CamInitialRotation, DeltaTime, 2.f));
+
+					TurnYaw = CamInitialRotation.Yaw;
+				}
+			}*/
+
+			/*SetActorRotation(UKismetMathLibrary::RInterpTo(GetActorRotation(), FRotator(CamRotation.Pitch, LookAtRotation.Yaw, CamRotation.Roll), DeltaTime, 2.f));*/
+			SetActorLocation(FMath::Lerp(CamLocation, FVector(BallLocation.X, BallLocation.Y - 530.f, CamLocation.Z), 0.02f));
 		}
 	}
 }
 
+
+
+void AxGameCamera::SetTurnYaw(float TurnYawVal)
+{
+	TurnYaw = TurnYawVal;
+	bShouldTurn = true;
+}
+
+void AxGameCamera::BeginPlay()
+{
+	Super::BeginPlay();
+	CamInitialRotation = GetActorRotation();
+}
 

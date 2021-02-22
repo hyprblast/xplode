@@ -112,6 +112,7 @@ int32 AxBaseCharacter::SetPlayerIsThrowing_Implementation(bool bPlayerIsThrowing
 
 int32 AxBaseCharacter::ThrowBall_Implementation()
 {
+	/*const FVector FwVector (CameraComp->GetForwardVector().X, CameraComp->GetForwardVector().Y, CameraComp->GetForwardVector().Z);*/
 	ServerThrowBall(CameraComp->GetComponentLocation(), CameraComp->GetForwardVector());
 	return 1;
 }
@@ -278,6 +279,7 @@ void AxBaseCharacter::AttachBallToTPVMesh()
 	TPVBall = SpawnBall(TPVSocketTransform);
 	TPVBall->MulticastSetOwnerNoSee();
 
+
 	TPVBall->SphereComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	TPVBall->AttachToComponent(TPVSkeletalMesh, TransformRules, SocketName);
 	/*TPVBall->StartTimer();*/
@@ -316,10 +318,23 @@ void AxBaseCharacter::LoadDynamicRefs()
 
 void AxBaseCharacter::Turn(float Value)
 {
+	/*GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Yellow, FString::SanitizeFloat(Value));*/
+
+	InputAxisYawValue = Value;
+	
 	if (CameraVieww == UxCameraView::FirstPerson)
 	{
-		InputAxisYawValue = Value;
 		AxBaseCharacter::AddControllerYawInput(Value);
+	}
+	else
+	{
+		InputAxisYawValue = Value;
+
+		//TODO: Bind character head movement
+		if (IsValid(TopDownCam))
+		{
+			TopDownCam->SetTurnYaw(Value);
+		}
 	}
 
 
@@ -562,10 +577,6 @@ void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraLocation, FVe
 	FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(CameraLocation, TraceEnd);
 	FTransform ThrowTo = UKismetMathLibrary::MakeTransform(CameraLocation, LookAtRotation, FVector(1.0f, 1.0f, 1.0f));
 
-
-	FTimerDelegate TimerDel;
-	FTimerHandle TimerHandle;
-
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = this;
 	SpawnParams.Instigator = this;
@@ -581,6 +592,8 @@ void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraLocation, FVe
 	//ProjectileBall->AddCollision();
 	/*ProjectileBall->SetActorHiddenInGame(true);*/
 
+	/*CameraFowardVector.Y = CameraFowardVector.Y + 1 * InputAxisYawValue;*/ 
+	
 	ProjectileBall->Shoot(CameraFowardVector * (ThrowPower > MaxThrowPower ? MaxThrowPower : ThrowPower));
 
 	// To avoid the initial lag...destroy after .2s;

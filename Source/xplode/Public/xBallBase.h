@@ -32,9 +32,6 @@ public:
 		void StartTimer();
 
 	UFUNCTION()
-		void AddSelfAsCameraTarget();
-
-	UFUNCTION()
 	void AddOverlap();
 
 	UFUNCTION(NetMulticast, Reliable)
@@ -100,6 +97,8 @@ protected:
 	UFUNCTION(Client, Reliable)
 		void ClientWarn();
 
+	UFUNCTION(NetMulticast, Reliable)
+		void MulticastAddSelfAsCameraTarget();
 
 private:
 	// Note to self: This timer needs to be set on server
