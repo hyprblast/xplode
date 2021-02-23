@@ -208,7 +208,7 @@ void AxBaseCharacter::Tick(float DeltaTime)
 	{
 		if (bIsAddingThrowPower && ThrowPower < MaxThrowPower)
 		{
-			ThrowPower += 25;
+			ThrowPower += 50;
 
 			if (GEngine)
 			{
@@ -320,22 +320,23 @@ void AxBaseCharacter::Turn(float Value)
 {
 	/*GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Yellow, FString::SanitizeFloat(Value));*/
 
-	InputAxisYawValue = Value;
+	
 	
 	if (CameraVieww == UxCameraView::FirstPerson)
 	{
 		AxBaseCharacter::AddControllerYawInput(Value);
-	}
-	else
-	{
 		InputAxisYawValue = Value;
-
-		//TODO: Bind character head movement
-		if (IsValid(TopDownCam))
-		{
-			TopDownCam->SetTurnYaw(Value);
-		}
 	}
+	//else
+	//{
+	//	InputAxisYawValue = Value;
+
+	//	//TODO: Bind character head movement
+	//	if (IsValid(TopDownCam))
+	//	{
+	//		TopDownCam->SetTurnYaw(Value);
+	//	}
+	//}
 
 
 
@@ -569,7 +570,7 @@ void AxBaseCharacter::MulticastPlayTPVPickupAnimation_Implementation()
 
 void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraLocation, FVector CameraFowardVector)
 {
-	FHitResult Hit;
+	/*FHitResult Hit;*/
 	/*FName SocketName = TEXT("hand_socket");*/
 	FVector TraceStart = CameraLocation;
 	FVector TraceEnd = TraceStart + (CameraFowardVector * 10000);
@@ -594,7 +595,7 @@ void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraLocation, FVe
 
 	/*CameraFowardVector.Y = CameraFowardVector.Y + 1 * InputAxisYawValue;*/ 
 	
-	ProjectileBall->Shoot(CameraFowardVector * (ThrowPower > MaxThrowPower ? MaxThrowPower : ThrowPower));
+	ProjectileBall->Shoot(CameraFowardVector * FMath::Clamp(ThrowPower, MinThrowPower, MaxThrowPower));
 
 	// To avoid the initial lag...destroy after .2s;
 	//ClientThrowBall(CameraLocation, CameraFowardVector);
@@ -819,7 +820,7 @@ void AxBaseCharacter::ClientThrowBall_Implementation(FVector CameraLocation, FVe
 	ProjectileBall->SphereCollisionComp->MoveIgnoreActors.Add(this);
 	//ProjectileBall->AddCollision();
 	
-	ProjectileBall->Shoot(CameraFowardVector * (ThrowPower > MaxThrowPower ? MaxThrowPower : ThrowPower));
+	ProjectileBall->Shoot(CameraFowardVector * FMath::Clamp(ThrowPower, MinThrowPower, MaxThrowPower));
 	ProjectileBall->AutoDestroyAfterSecs(0.04f);
 }
 

@@ -30,7 +30,10 @@ public:
 		float ThrowPower = 0;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Defaults", Replicated)
-		float MaxThrowPower = 3000;
+		float MaxThrowPower = 8000.f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Defaults", Replicated)
+		float MinThrowPower = 2000.f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Defaults", Replicated)
 		float Health = 100;

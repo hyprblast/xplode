@@ -42,6 +42,7 @@ AxBallProjectileBase::AxBallProjectileBase()
 	ProjectileMovementComp = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
 	ProjectileMovementComp->SetIsReplicated(true);
 	ProjectileMovementComp->bAutoActivate = false;
+	
 
 
 	SphereStaticMeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Sphere"));
@@ -78,10 +79,11 @@ AxBallProjectileBase::AxBallProjectileBase()
 	ProjectileMovementComp->SetInterpolatedComponent(SphereStaticMeshComp);
 	ProjectileMovementComp->bInterpMovement = true;
 	ProjectileMovementComp->bInterpRotation = true;
-	/*ProjectileMovementComp->bRotationFollowsVelocity = true;*/
-	ProjectileMovementComp->bRotationRemainsVertical = true;
+	/*ProjectileMovementComp->bRotationFollowsVelocity = true;
+	ProjectileMovementComp->bRotationRemainsVertical = false;*/
 	ProjectileMovementComp->bShouldBounce = true;
 	ProjectileMovementComp->Bounciness = 0.6f;
+	
 
 
 	/*NetUpdateFrequency = 2000.f;*/
@@ -112,7 +114,8 @@ void AxBallProjectileBase::Shoot(FVector Velocity)
 	ProjectileMovementComp->Activate();
 	/*ProjectileMovementComp->MaxSpeed = 2000;
 	ProjectileMovementComp->InitialSpeed = 2000;*/
-	ProjectileMovementComp->ProjectileGravityScale = 0.7f;
+	ProjectileMovementComp->ProjectileGravityScale = 0.8f;
+	
 
 }
 
@@ -151,18 +154,20 @@ void AxBallProjectileBase::AutoDestroyAfterSecs(float Seconds)
 
 void AxBallProjectileBase::OnCompHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-	if (HasAuthority())
+	if (HasAuthority() && IsValid(OtherActor))
 	{
-		ProjectileMovementComp->ProjectileGravityScale = 1;
+		
 		if (OtherActor->ActorHasTag(FName("Player")) &&
 			OtherActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()) &&
 			!IxBaseCharacterInterface::Execute_GetPlayerHasBall(OtherActor))
 		{
-			if (ProjectileMovementComp->Velocity.IsNearlyZero() || IxBaseCharacterInterface::Execute_GetPlayerIsInCatchMode(OtherActor))
+			ProjectileMovementComp->ProjectileGravityScale = 1;
+			IxBaseCharacterInterface::Execute_PickupBall(OtherActor);
+			Destroy();
+			/*if (ProjectileMovementComp->Velocity.IsNearlyZero() || IxBaseCharacterInterface::Execute_GetPlayerIsInCatchMode(OtherActor))
 			{
-				IxBaseCharacterInterface::Execute_PickupBall(OtherActor);
-				Destroy();
-			}
+				
+			}*/
 
 			//IxBaseCharacterInterface::Execute_AttachBall(OtherActor);
 			//Destroy();

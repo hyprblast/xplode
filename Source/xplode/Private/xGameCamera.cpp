@@ -43,23 +43,23 @@ void AxGameCamera::Tick(float DeltaTime)
 		if (IsValid(FollowActor))
 		{
 			FVector CamLocation = GetActorLocation();
-			FRotator CamRotation = GetActorRotation();
+			//FRotator CamRotation = GetActorRotation();
 
 			FVector BallLocation = FollowActor->GetActorLocation();
-			FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(CamLocation, BallLocation);
+			//FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(CamLocation, BallLocation);
 
-			float TargetYaw = CamRotation.Yaw + 45.f * TurnYaw;
-			TargetYaw = FMath::Clamp(TargetYaw, 45.f, 135.f);
+			/*float TargetYaw = CamRotation.Yaw + 45.f * TurnYaw;
+			TargetYaw = FMath::Clamp(TargetYaw, 45.f, 135.f);*/
 
-			if (TurnYaw == 0)
+			/*if (TurnYaw == 0)
 			{
 				TargetYaw = 90.f;
-			}
+			}*/
 
 			/*GEngine->AddOnScreenDebugMessage(-1, .1f, FColor::Yellow, FString::SanitizeFloat(TargetYaw));*/
 
 			
-			SetActorRotation(UKismetMathLibrary::RInterpTo(CamRotation, FRotator(CamRotation.Pitch, TargetYaw, CamInitialRotation.Roll), DeltaTime, 2.f));
+			//SetActorRotation(UKismetMathLibrary::RInterpTo(CamRotation, FRotator(CamRotation.Pitch, TargetYaw, CamInitialRotation.Roll), DeltaTime, 2.f));
 
 
 
@@ -80,22 +80,22 @@ void AxGameCamera::Tick(float DeltaTime)
 			}*/
 
 			/*SetActorRotation(UKismetMathLibrary::RInterpTo(GetActorRotation(), FRotator(CamRotation.Pitch, LookAtRotation.Yaw, CamRotation.Roll), DeltaTime, 2.f));*/
-			SetActorLocation(FMath::Lerp(CamLocation, FVector(BallLocation.X, BallLocation.Y - 530.f, CamLocation.Z), 0.02f));
+			SetActorLocation(FMath::Lerp(CamLocation, FVector(CamLocation.X, BallLocation.Y, CamLocation.Z), 0.02f));
 		}
 	}
 }
 
 
 
-void AxGameCamera::SetTurnYaw(float TurnYawVal)
-{
-	TurnYaw = TurnYawVal;
-	bShouldTurn = true;
-}
+//void AxGameCamera::SetTurnYaw(float TurnYawVal)
+//{
+//	TurnYaw = TurnYawVal;
+//	bShouldTurn = true;
+//}
 
-void AxGameCamera::BeginPlay()
-{
-	Super::BeginPlay();
-	CamInitialRotation = GetActorRotation();
-}
+//void AxGameCamera::BeginPlay()
+//{
+//	Super::BeginPlay();
+//	//CamInitialRotation = GetActorRotation();
+//}
 
