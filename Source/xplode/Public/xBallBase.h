@@ -15,15 +15,19 @@
 #include "Camera/CameraComponent.h"
 #include "xBallBase.generated.h"
 
+
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FPlayWarningEvent);
+
 UCLASS()
 class XPLODE_API AxBallBase : public AActor
 {
 	GENERATED_BODY()
 
 public:
-	// Sets default values for this actor's properties
+
 	AxBallBase();
-	virtual void NotifyActorBeginOverlap(AActor* OtherActor) override;
+	//virtual void NotifyActorBeginOverlap(AActor* OtherActor) override;
 
 	/*UFUNCTION()
 		void Shoot(FVector Velocity, float AccelerationMag);*/
@@ -32,16 +36,29 @@ public:
 		void StartTimer();
 
 	UFUNCTION()
-	void AddOverlap();
+		void AddOverlapAndPhysics();
+
+	UFUNCTION()
+		void RemoveOverlapAndPhysics();
 
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastExplode();
-	
+
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastSetOwnerNoSee();
 
-	UFUNCTION(Client, Reliable)
-		void ClientStopWarn();
+	UFUNCTION()
+		void StopWarn();
+
+	UFUNCTION()
+		void CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, class AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION()
+	void Shoot (FVector Force);
+
+	UFUNCTION()
+		void PlayWarn();
+
 
 	// Called every frame
 	/*virtual void Tick(float DeltaTime) override;*/
@@ -76,9 +93,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
 		USoundCue* ExplosionSoundFx;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
-		USoundCue* WarningSoundFx;
-
 	UPROPERTY()
 		float Damage = 28.0f;
 
@@ -88,14 +102,12 @@ public:
 	UPROPERTY()
 		UAudioComponent* AudioComponent;
 	
-	/*UFUNCTION()
-	void CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, class AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);*/
+	UPROPERTY(BlueprintAssignable, Category = "Events")
+		FPlayWarningEvent OnWarning;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-	
-	UFUNCTION(Client, Reliable)
-		void ClientWarn();
 
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastAddSelfAsCameraTarget();
@@ -118,8 +130,8 @@ private:
 		void OnTimerElapsed();
 
 	UFUNCTION()
-	void LoadDynamicRefs();
-	
+		void LoadDynamicRefs();
+
 	UFUNCTION()
 		void SetStaticMesh();
 

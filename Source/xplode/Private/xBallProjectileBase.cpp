@@ -162,7 +162,7 @@ void AxBallProjectileBase::OnCompHit(UPrimitiveComponent* HitComp, AActor* Other
 			!IxBaseCharacterInterface::Execute_GetPlayerHasBall(OtherActor))
 		{
 			ProjectileMovementComp->ProjectileGravityScale = 1;
-			IxBaseCharacterInterface::Execute_PickupBall(OtherActor);
+			/*IxBaseCharacterInterface::Execute_PickupBall(OtherActor);*/
 			Destroy();
 			/*if (ProjectileMovementComp->Velocity.IsNearlyZero() || IxBaseCharacterInterface::Execute_GetPlayerIsInCatchMode(OtherActor))
 			{

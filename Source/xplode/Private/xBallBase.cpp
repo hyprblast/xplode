@@ -24,6 +24,10 @@ AxBallBase::AxBallBase()
 	SphereComp->SetCollisionProfileName(TEXT("xBallCollision"));
 	SphereComp->SetGenerateOverlapEvents(false);
 	SphereComp->CastShadow = false;
+	/*SphereComp->SetLinearDamping(0);*/
+	SphereComp->SetSimulatePhysics(false);
+	
+	
 	/*SphereComp->SetNotifyRigidBodyCollision(true);*/
 
 
@@ -37,35 +41,55 @@ AxBallBase::AxBallBase()
 	SetReplicateMovement(true);
 }
 
-//void AxBallBase::CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, class AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
-//{
-//	/*if (GEngine)
-//	{
-//		GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, TEXT("NotHello %s"), *OtherComp->GetFullName());
-//	}*/
-//
-//	UE_LOG(LogTemp, Log, TEXT("Other Actor is: %s"), *OtherComp->GetFullName());
-//}
-
-
-void AxBallBase::NotifyActorBeginOverlap(AActor* OtherActor)
+void AxBallBase::CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, class AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	Super::NotifyActorBeginOverlap(OtherActor);
-	
-	// Attach ball on server version of the player so that it can be replicated
-	if (HasAuthority() &&
-		OtherActor->ActorHasTag(FName("Player")) &&
-		OtherActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()) &&
-		!IxBaseCharacterInterface::Execute_GetPlayerHasBall(OtherActor))
+	if (HasAuthority() && IsValid(OtherActor))
 	{
-		//IxBaseCharacterInterface::Execute_PickupBall(OtherActor, this);
-		Destroy();
-		//IxBaseCharacterInterface::Execute_AttachBall(OtherActor);
-		//Destroy();
+		if (OtherActor->ActorHasTag(FName("Player")) &&
+			OtherActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()) &&
+			!IxBaseCharacterInterface::Execute_GetPlayerHasBall(OtherActor))
+		{
+			RemoveOverlapAndPhysics();
+			IxBaseCharacterInterface::Execute_PickupBall(OtherActor, this);
+			//Destroy();
+		}
 
 	}
-
 }
+
+
+void AxBallBase::Shoot(FVector Force)
+{
+	if (!bIsExploding)
+	{
+		bIsExplodeMode = false;
+		ExplodeLevel = 0;
+		StopWarn();
+		ClearTimer();
+	}
+
+	AddOverlapAndPhysics();
+	SphereComp->AddImpulse(Force);
+}
+
+//void AxBallBase::NotifyActorBeginOverlap(AActor* OtherActor)
+//{
+//	Super::NotifyActorBeginOverlap(OtherActor);
+//	
+//	// Attach ball on server version of the player so that it can be replicated
+//	if (HasAuthority() &&
+//		OtherActor->ActorHasTag(FName("Player")) &&
+//		OtherActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()) &&
+//		!IxBaseCharacterInterface::Execute_GetPlayerHasBall(OtherActor))
+//	{
+//		//IxBaseCharacterInterface::Execute_PickupBall(OtherActor, this);
+//		Destroy();
+//		//IxBaseCharacterInterface::Execute_AttachBall(OtherActor);
+//		//Destroy();
+//
+//	}
+//
+//}
 
 // Called when the game starts or when spawned
 void AxBallBase::BeginPlay()
@@ -79,6 +103,7 @@ void AxBallBase::BeginPlay()
 	if (HasAuthority())
 	{
 		SetStaticMesh();
+		SphereComp->OnComponentBeginOverlap.AddDynamic(this, &AxBallBase::CallOnOverlap);
 		MulticastAddSelfAsCameraTarget();
 	}
 }
@@ -96,9 +121,10 @@ void AxBallBase::MulticastExplode_Implementation()
 }
 
 
-void AxBallBase::ClientWarn_Implementation()
+void AxBallBase::PlayWarn()
 {
-	AudioComponent = UGameplayStatics::SpawnSoundAtLocation(GetWorld(), WarningSoundFx, GetActorLocation());
+	OnWarning.Broadcast();
+	/*AudioComponent = UGameplayStatics::SpawnSoundAtLocation(GetWorld(), WarningSoundFx, GetActorLocation());*/
 }
 
 void AxBallBase::MulticastAddSelfAsCameraTarget_Implementation()
@@ -117,7 +143,7 @@ void AxBallBase::MulticastAddSelfAsCameraTarget_Implementation()
 	}
 }
 
-void AxBallBase::ClientStopWarn_Implementation()
+void AxBallBase::StopWarn()
 {
 	if (IsValid(AudioComponent))
 	{
@@ -130,19 +156,20 @@ void AxBallBase::MulticastSetOwnerNoSee_Implementation()
 	SphereComp->SetOwnerNoSee(true);
 }
 
+
 void AxBallBase::OnTimerElapsed()
 {
 	ExplodeLevel += 1;
 
 	if (ExplodeLevel == ExplodesAt -2)
 	{
-		ClientWarn();
+		PlayWarn();
 	}
 
 	if (ExplodeLevel >= ExplodesAt && !bIsExploding)
 	{
 		bIsExploding = true;
-		ClientStopWarn();
+		//StopWarn();
 		// Clear timer
 		ClearTimer();
 		//// Explode
@@ -154,7 +181,7 @@ void AxBallBase::LoadDynamicRefs()
 {
 	ExplosionParticle = Cast<UParticleSystem>(StaticLoadObject(UParticleSystem::StaticClass(), NULL, TEXT("ParticleSystem'/Game/BallisticsVFX/Particles/Explosive/Explosion_GrenadeLauncher_1.Explosion_GrenadeLauncher_1'")));
 	ExplosionSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/Battle_Royale_Game/Cues/Explosions/Explosion_Grenade_Close_2_Bomb_Explode_Fiery_Loud_Cue.Explosion_Grenade_Close_2_Bomb_Explode_Fiery_Loud_Cue'")));
-	WarningSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/SciFiWeaponsCyberpunkArsenal/cues/Support_Material/Targeting/BEEP_Targeting_Loop_04_Cue.BEEP_Targeting_Loop_04_Cue'")));
+	//WarningSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/SciFiWeaponsCyberpunkArsenal/cues/Support_Material/Targeting/BEEP_Targeting_Loop_04_Cue.BEEP_Targeting_Loop_04_Cue'")));
 }
 
 void AxBallBase::SetStaticMesh()
@@ -180,9 +207,19 @@ void AxBallBase::StartTimer()
 }
 
 
-void AxBallBase::AddOverlap()
+void AxBallBase::AddOverlapAndPhysics()
 {
+	SphereComp->SetCollisionObjectType(XBALLOBJECT_CHANNEL);
+	SphereComp->SetCollisionProfileName(TEXT("xBallCollision"));
 	SphereComp->SetGenerateOverlapEvents(true);
+	SphereComp->SetSimulatePhysics(true);
+}
+
+void AxBallBase::RemoveOverlapAndPhysics()
+{
+	SphereComp->SetSimulatePhysics(false);
+	SphereComp->SetGenerateOverlapEvents(false);
+	SphereComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
 void AxBallBase::SelfDestroy()

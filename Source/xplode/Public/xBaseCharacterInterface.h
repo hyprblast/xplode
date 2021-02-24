@@ -24,9 +24,6 @@ public:
 		bool GetPlayerIsThrowing();
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		bool GetPlayerIsInCatchMode();
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SetPlayerIsThrowing(bool bPlayerIsThrowing);
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
@@ -42,6 +39,6 @@ public:
 		int32 ThrowBall();
 	
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 PickupBall();
+		int32 PickupBall(AxBallBase* Ball);
 	
 };

@@ -40,11 +40,11 @@ void AxBallSpawnerBase::SpawnBall()
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 		FTransform SpawnWhere = GetActorTransform();//UKismetMathLibrary::MakeTransform(FVector(1534, 1467, 248), FRotator(0, 0, 0), FVector(1.0f, 1.0f, 1.0f));
-		
+		//SpawnWhere.SetScale3D(FVector(1.5f,1.5f,1.5f));
 
-		AxBallProjectileBase* BallProjectile = GetWorld()->SpawnActor<AxBallProjectileBase>(AxBallProjectileBase::StaticClass(), SpawnWhere, SpawnParams);
+		AxBallBase* Ball = GetWorld()->SpawnActor<AxBallBase>(AxBallBase::StaticClass(), SpawnWhere, SpawnParams);
 		//BallProjectile->AddCollision();
-		BallProjectile->Shoot(FVector(0, -100, 800));
+		Ball->Shoot(FVector(0, 0, 5000.f));
 	}
 	
 }

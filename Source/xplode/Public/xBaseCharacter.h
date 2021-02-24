@@ -30,23 +30,16 @@ public:
 		float ThrowPower = 0;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Defaults", Replicated)
-		float MaxThrowPower = 8000.f;
+		float MaxThrowPower = 30000.f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Defaults", Replicated)
-		float MinThrowPower = 2000.f;
+		float MinThrowPower = 10000.f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Defaults", Replicated)
 		float Health = 100;
 
 	UPROPERTY(Replicated)
 		bool bIsAddingThrowPower;
-
-	UPROPERTY()
-		bool bIsCatchMode;
-
-	//FRotator CombatModeCharacterRotation = FRotator(0, -81.0f, 0); //y (pitch), z (yaw), x (roll)
-
-	//FRotator DefaultModeCharacterRotation = FRotator(0, -90.0f, 0);
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 		UCameraComponent* CameraComp;
@@ -61,10 +54,16 @@ public:
 		bool bIsThrowing;
 
 	UPROPERTY()
-		UAudioComponent* AudioComponent;
+		UAudioComponent* ThrowPowerAudioComponent;
+	
+	UPROPERTY()
+		UAudioComponent* WarnAudioComponent;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
 		USoundCue* ThrowPowerIncreaseSoundFx;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
+		USoundCue* WarningSoundFx;
 
 	UPROPERTY()
 		FName PlayerTypeName;
@@ -74,24 +73,20 @@ public:
 	virtual bool GetPlayerIsThrowing_Implementation() override; // This is the declaration of the implementation
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		bool GetPlayerHasBall();  // This is the prototype declared in the interface
-	virtual bool GetPlayerHasBall_Implementation() override; // This is the declaration of the implementation
+		bool GetPlayerHasBall();  
+	virtual bool GetPlayerHasBall_Implementation() override; 
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		bool GetPlayerIsInCatchMode();  // This is the prototype declared in the interface
-	virtual bool GetPlayerIsInCatchMode_Implementation() override; // This is the declaration of the implementation
+		int32 SetPlayerIsThrowing(bool bPlayerIsThrowing);  
+	virtual int32 SetPlayerIsThrowing_Implementation(bool bPlayerIsThrowing) override; 
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 SetPlayerIsThrowing(bool bPlayerIsThrowing);  // This is the prototype declared in the interface
-	virtual int32 SetPlayerIsThrowing_Implementation(bool bPlayerIsThrowing) override; // This is the declaration of the implementation
+		int32 ThrowBall();  
+	virtual int32 ThrowBall_Implementation() override; 
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 ThrowBall();  // This is the prototype declared in the interface
-	virtual int32 ThrowBall_Implementation() override; // This is the declaration of the implementation
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 PickupBall();  // This is the prototype declared in the interface
-	virtual int32 PickupBall_Implementation() override; // This is the declaration of the implementation
+		int32 PickupBall(AxBallBase* Ball);  
+	virtual int32 PickupBall_Implementation(AxBallBase* Ball) override; 
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		float GetInputAxisYawValue();  
@@ -107,7 +102,7 @@ public:
 
 	
 	UFUNCTION(Server, Reliable, WithValidation)
-		void ServerThrowBall(FVector CameraLocation, FVector CameraFowardVector);
+		void ServerThrowBall(FVector CameraFowardVector);
 
 	UFUNCTION(Client, Reliable)
 		void ClientThrowBall(FVector CameraLocation, FVector CameraFowardVector);
@@ -135,9 +130,6 @@ public:
 		void SpawnNewBallOnFPVMesh();
 	
 	UFUNCTION(NetMulticast, Reliable)
-		void MulticastDestroyBalls();
-
-	UFUNCTION(NetMulticast, Reliable)
 		void MulticastSetTopDownViewSettings();
 
 	UFUNCTION(Client, Reliable)
@@ -145,6 +137,23 @@ public:
 
 	UFUNCTION(Client, Reliable)
 		void ClientSetPlayerTypeName(FName TypeName);
+
+	UFUNCTION()
+	 void SubscribeToBallWarnEvent();
+
+	UFUNCTION()
+		void UnSubscribeToBallWarnEvent();
+
+	UFUNCTION(Client, Reliable)
+		void ClientPlayBallWarnEvent();
+
+	UFUNCTION(Client, Reliable)
+		void ClientStopPlayBallWarn();
+	
+	UFUNCTION()
+		void OnBallWarn();
+
+	
 
 protected:
 	// Called when the game starts or when spawned
@@ -166,12 +175,6 @@ protected:
 	
 	UFUNCTION()
 		void PlayThrowBallAnim();
-	
-	UFUNCTION(Server, Reliable, WithValidation)
-		void ServerSetCatchMode();
-	
-	UFUNCTION()
-		void UnSetCatchMode();
 	
 	UFUNCTION()
 		void CamToggle();
@@ -214,29 +217,18 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Animation")
 		UAnimMontage* PickupBallMontage;
 
-	
-
-	/*UPROPERTY(EditAnywhere, Category = "Animation")
-		UAnimMontage* PickupBallMontageTPV;*/
-
 private:	
 	UPROPERTY()
 		AxGameCamera* TopDownCam;
 
 	UPROPERTY()
 		UxCameraView CameraVieww;
-
-	UPROPERTY()
-		FTimerHandle CatchModeTimerHandle;
 	
 	UFUNCTION()
 		void FindTopDownCamera();
 
 	UFUNCTION()
 	void AttachBallToTPVMesh();
-	
-	UFUNCTION()
-	void TempChangeCollision(AxBallProjectileBase* BallProjectile);
 
 	UFUNCTION()
 	AxBallBase* SpawnBall(FTransform SpawnLocation);
