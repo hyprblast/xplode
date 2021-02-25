@@ -39,9 +39,6 @@ int32 AxPlayerController::SpawnPlayer_Implementation(TSubclassOf<AxBaseCharacter
 
 	AxBaseCharacter* SpawnedPlayer = GetWorld()->SpawnActor<AxBaseCharacter>(PlayerToSpawnType, PlayerToSpawnTransform, spawnParams);
 	
-	
-	GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, PlayerTypeName.ToString());
-	
 	// Needs an event call here or to override to control the posses lifecycle
 	Possess(SpawnedPlayer);
 
