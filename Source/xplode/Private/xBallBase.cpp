@@ -34,6 +34,8 @@ AxBallBase::AxBallBase()
 	SphereComp->SetupAttachment(RootComponent);
 	SphereComp->SetIsReplicated(true);
 	SphereComp->CanCharacterStepUp(false);
+	/*SphereComp->SetWorldScale3D(FVector(1.5f, 1.5f, 1.5f));*/
+
 
 	SetRootComponent(SphereComp);
 
@@ -53,6 +55,12 @@ void AxBallBase::CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, c
 			IxBaseCharacterInterface::Execute_PickupBall(OtherActor, this);
 			//Destroy();
 		}
+		else if (OtherActor->ActorHasTag("Goal"))
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Yellow, TEXT("GOAL!!!!!"));
+			
+		}
+		
 
 	}
 }

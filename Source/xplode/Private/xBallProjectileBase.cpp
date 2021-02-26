@@ -31,8 +31,8 @@ AxBallProjectileBase::AxBallProjectileBase()
 	SphereCollisionComp->SetWalkableSlopeOverride(FWalkableSlopeOverride(WalkableSlope_Unwalkable, 0.f));
 	SphereCollisionComp->CanCharacterStepUpOn = ECB_No;
 	SphereCollisionComp->SetNotifyRigidBodyCollision(true);
-	SphereCollisionComp->SetCollisionObjectType(XBALLPROJECTILEOBJECT_CHANNEL);
-	SphereCollisionComp->SetCollisionProfileName(TEXT("xBallProjectileCollision"));
+	/*SphereCollisionComp->SetCollisionObjectType(XBALLPROJECTILEOBJECT_CHANNEL);
+	SphereCollisionComp->SetCollisionProfileName(TEXT("xBallProjectileCollision"));*/
 
 	SphereCollisionComp->SetIsReplicated(true);
 	SphereCollisionComp->SetSphereRadius(20.f);

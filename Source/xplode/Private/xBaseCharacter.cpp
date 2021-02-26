@@ -43,8 +43,8 @@ AxBaseCharacter::AxBaseCharacter()
 
 	USkeletalMeshComponent* TPVMesh = GetMesh();
 
-	TPVMesh->SetCollisionObjectType(XBALLNOCOLLISIONOBJECT_CHANNEL);
-	TPVMesh->SetCollisionProfileName(TEXT("xBalllMeshNoCollision"));
+	/*TPVMesh->SetCollisionObjectType(XBALLNOCOLLISIONOBJECT_CHANNEL);
+	TPVMesh->SetCollisionProfileName(TEXT("xBalllMeshNoCollision"));*/
 	TPVMesh->CanCharacterStepUp(false);
 
 	CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
@@ -61,8 +61,8 @@ AxBaseCharacter::AxBaseCharacter()
 	SkeletalMeshComp->SetupAttachment(CameraComp);
 
 
-	SkeletalMeshComp->SetCollisionObjectType(XBALLNOCOLLISIONOBJECT_CHANNEL);
-	SkeletalMeshComp->SetCollisionProfileName(TEXT("xBalllMeshNoCollision"));
+	/*SkeletalMeshComp->SetCollisionObjectType(XBALLNOCOLLISIONOBJECT_CHANNEL);
+	SkeletalMeshComp->SetCollisionProfileName(TEXT("xBalllMeshNoCollision"));*/
 	SkeletalMeshComp->CanCharacterStepUp(false);
 
 	UCharacterMovementComponent* const MovementComponent = GetCharacterMovement();
