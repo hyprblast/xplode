@@ -49,16 +49,16 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
 		bool bHasBall;
-	
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
 		bool bIsThrowing;
 
 	UPROPERTY()
 		UAudioComponent* ThrowPowerAudioComponent;
-	
+
 	UPROPERTY()
 		UAudioComponent* WarnAudioComponent;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
 		USoundCue* ThrowPowerIncreaseSoundFx;
 
@@ -73,24 +73,24 @@ public:
 	virtual bool GetPlayerIsThrowing_Implementation() override; // This is the declaration of the implementation
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		bool GetPlayerHasBall();  
-	virtual bool GetPlayerHasBall_Implementation() override; 
+		bool GetPlayerHasBall();
+	virtual bool GetPlayerHasBall_Implementation() override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 SetPlayerIsThrowing(bool bPlayerIsThrowing);  
-	virtual int32 SetPlayerIsThrowing_Implementation(bool bPlayerIsThrowing) override; 
+		int32 SetPlayerIsThrowing(bool bPlayerIsThrowing);
+	virtual int32 SetPlayerIsThrowing_Implementation(bool bPlayerIsThrowing) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 ThrowBall();  
-	virtual int32 ThrowBall_Implementation() override; 
+		int32 ThrowBall();
+	virtual int32 ThrowBall_Implementation() override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 PickupBall(AxBallBase* Ball);  
-	virtual int32 PickupBall_Implementation(AxBallBase* Ball) override; 
+		int32 PickupBall(AxBallBase* Ball);
+	virtual int32 PickupBall_Implementation(AxBallBase* Ball) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		float GetInputAxisYawValue();  
-	virtual float GetInputAxisYawValue_Implementation() override; 
+		float GetInputAxisYawValue();
+	virtual float GetInputAxisYawValue_Implementation() override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 DetachBall(AxBallBase* Ball);
@@ -100,35 +100,32 @@ public:
 		int32 AttachBall();
 	virtual int32 AttachBall_Implementation() override;
 
-	
+
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerThrowBall(FVector CameraFowardVector);
 
-	UFUNCTION(Client, Reliable)
-		void ClientThrowBall(FVector CameraLocation, FVector CameraFowardVector);
-	
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerSetPLayerIsThrowing(bool bPlayerIsThrowing);
-	
+
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastPlayTPVThrowAnimation();
-	
+
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerPlayTPVThrowBallAnim();
-	
+
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastPlayTPVPickupAnimation();
-	
+
 	UFUNCTION()
-	void IncreaseThrowPower();
-	
+		void IncreaseThrowPower();
+
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	virtual void Tick(float DeltaTime) override;
 
 	UFUNCTION()
 		void SpawnNewBallOnFPVMesh();
-	
+
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastSetTopDownViewSettings();
 
@@ -139,7 +136,7 @@ public:
 		void ClientSetPlayerTypeName(FName TypeName);
 
 	UFUNCTION()
-	 void SubscribeToBallWarnEvent();
+		void SubscribeToBallWarnEvent();
 
 	UFUNCTION()
 		void UnSubscribeToBallWarnEvent();
@@ -149,11 +146,14 @@ public:
 
 	UFUNCTION(Client, Reliable)
 		void ClientStopPlayBallWarn();
-	
+
 	UFUNCTION()
 		void OnBallWarn();
 
-	
+	UFUNCTION()
+		void SetHasBallFalse();
+
+
 
 protected:
 	// Called when the game starts or when spawned
@@ -165,20 +165,20 @@ protected:
 	/*virtual void PossessedBy(AController* NewController) override;*/
 
 	UFUNCTION()
-	void MoveFoward(float Value);
-	
+		void MoveFoward(float Value);
+
 	UFUNCTION()
-	void MoveRight(float Value);
-	
+		void MoveRight(float Value);
+
 	UFUNCTION()
 		void Turn(float Value);
-	
+
 	UFUNCTION()
 		void PlayThrowBallAnim();
-	
+
 	UFUNCTION()
 		void CamToggle();
-	
+
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerIncreaseThrowPower();
 
@@ -195,48 +195,51 @@ protected:
 
 	UFUNCTION(Client, Reliable)
 		void ClientActivateFirstPersonViewCam();
-	
+
 	UFUNCTION()
 		void HandleTakeAnyDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser);
-	
+
 	UPROPERTY(BlueprintReadOnly, Category = "Default")
 		float InputAxisYawValue = 0;
-	
+
 	UPROPERTY(Replicated)
 		AxBallBase* FPVBall;
-	
+
 	UPROPERTY(Replicated)
 		AxBallBase* TPVBall;
-	
+
 	UPROPERTY(EditAnywhere, Category = "Animation")
 		UAnimMontage* ThrowBallMontage;
-	
+
 	UPROPERTY(EditAnywhere, Category = "Animation")
 		UAnimMontage* ThrowBallMontageTPV;
-	
+
 	UPROPERTY(EditAnywhere, Category = "Animation")
 		UAnimMontage* PickupBallMontage;
 
-private:	
+private:
 	UPROPERTY()
 		AxGameCamera* TopDownCam;
 
 	UPROPERTY()
 		UxCameraView CameraVieww;
-	
+
+	UPROPERTY()
+		FTimerHandle HasBallTimerHandle;
+
 	UFUNCTION()
 		void FindTopDownCamera();
 
 	UFUNCTION()
-	void AttachBallToTPVMesh();
+		void AttachBallToTPVMesh();
 
 	UFUNCTION()
-	AxBallBase* SpawnBall(FTransform SpawnLocation);
+		AxBallBase* SpawnBall(FTransform SpawnLocation);
 
 	UFUNCTION()
-	void LoadDynamicRefs();
+		void LoadDynamicRefs();
 
 	UFUNCTION()
-	void DestroyBalls();
+		void DestroyBalls();
 
 };

@@ -530,38 +530,6 @@ bool AxBaseCharacter::ServerThrowBall_Validate(FVector CameraFowardVector)
 	return true;
 }
 
-void AxBaseCharacter::ClientThrowBall_Implementation(FVector CameraLocation, FVector CameraFowardVector)
-{
-	FHitResult Hit;
-	/*FName SocketName = TEXT("hand_socket");*/
-	FVector TraceStart = CameraLocation;
-	FVector TraceEnd = TraceStart + (CameraFowardVector * 10000);
-	/*FTransform SocketTransform = GetMesh()->GetSocketTransform(SocketName, RTS_World);*/
-	FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(CameraLocation, TraceEnd);
-	FTransform ThrowTo = UKismetMathLibrary::MakeTransform(CameraLocation, LookAtRotation, FVector(1.0f, 1.0f, 1.0f));
-
-
-	FTimerDelegate TimerDel;
-	FTimerHandle TimerHandle;
-
-	FActorSpawnParameters SpawnParams;
-	SpawnParams.Owner = this;
-	SpawnParams.Instigator = this;
-	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-
-	AxBallProjectileBase* ProjectileBall = GetWorld()->SpawnActor<AxBallProjectileBase>(AxBallProjectileBase::StaticClass(), ThrowTo, SpawnParams);
-	/*ProjectileBall->AddSelfAsCameraTarget();*/
-	//ProjectileBall->SphereCollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	ProjectileBall->Tags.Add("ClientSpawn");
-	//Ignore the spawner of this projectile
-	ProjectileBall->SphereCollisionComp->MoveIgnoreActors.Add(this);
-	//ProjectileBall->AddCollision();
-	
-	ProjectileBall->Shoot(CameraFowardVector * FMath::Clamp(ThrowPower, MinThrowPower, MaxThrowPower));
-	ProjectileBall->AutoDestroyAfterSecs(0.04f);
-}
-
 void AxBaseCharacter::ServerSetPLayerIsThrowing_Implementation(bool bPlayerIsThrowing)
 {
 	bIsThrowing = bPlayerIsThrowing;
@@ -621,14 +589,20 @@ void AxBaseCharacter::SpawnNewBallOnFPVMesh()
 	FPVBall->AttachToComponent(SkeletalMeshComp, TransformRules, SocketName);
 }
 
-
+void AxBaseCharacter::SetHasBallFalse()
+{
+	bHasBall = false;
+	GetWorld()->GetTimerManager().ClearTimer(HasBallTimerHandle);
+}
 
 void AxBaseCharacter::DestroyBalls()
 {
 	ThrowPower = 0;
-	bHasBall = false;
 	bIsThrowing = false;
 	bIsAddingThrowPower = false;
+
+	GetWorldTimerManager().SetTimer(
+		HasBallTimerHandle, this, &AxBaseCharacter::SetHasBallFalse, .3f, false);
 	
 	
 	if (IsValid(FPVBall))
