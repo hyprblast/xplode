@@ -28,6 +28,8 @@ void AxplodeGameModeBase::RequestSpawnPlayerType(FName TypeName, APlayerControll
 {
 	int32 Length = TypeName == TEXT("Blue") ? BlueSpanwPoints.Num() : RedSpawnPoints.Num();
 
+	PlayerControllerList.Add(PlayerController);
+
 	if (Length > 0 && PlayerUIClasses.Num() == 2)
 	{
 		int32 Rand = FMath::RandRange(0, Length - 1);
@@ -69,8 +71,6 @@ void AxplodeGameModeBase::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
 
-	//PlayerControllerList.Add(NewPlayer);
-
 	if (NewPlayer->GetClass()->ImplementsInterface(UxPlayerControllerInterface::StaticClass()))
 	{
 		//UE_LOG(LogTemp, Log, TEXT("Post Login"));
@@ -82,6 +82,8 @@ void AxplodeGameModeBase::PostLogin(APlayerController* NewPlayer)
 
 void AxplodeGameModeBase::BeginPlay()
 {
+	Super::BeginPlay();
+
 	int counter = 0;
 
 	/*SpawnBall();*/
@@ -122,6 +124,22 @@ void AxplodeGameModeBase::BeginPlay()
 	}
 }
 
+
+//bool AxplodeGameModeBase::ReadyToStartMatch_Implementation()
+//{
+//	//return Super::ReadyToStartMatch_Implementation();
+//
+//	GEngine->AddOnScreenDebugMessage(-1, .5f, FColor::Cyan, TEXT("ReadyToStartMatch_Implementation"));
+//	return false;
+//}
+
+//bool AxplodeGameModeBase::ReadyToStartMatch_Implementation()
+//{
+//	Super::ReadyToStartMatch();
+//
+//	return NumPlayers >= MinPlayersNeededToStart;
+//}
+
 void AxplodeGameModeBase::GetBluePrintPlayerClassRefs()
 {
 	static ConstructorHelpers::FClassFinder<AxBaseCharacter> BluePlayerUIBPClass(TEXT("/Game/_Main/Characters/Blueprints/BP_xBluePlayer.BP_xBluePlayer_C"));
@@ -133,6 +151,7 @@ void AxplodeGameModeBase::GetBluePrintPlayerClassRefs()
 		PlayerUIClasses.Add(RedPlayerUIBPClass.Class);
 	}
 }
+
 
 // This cannot happen here as this object will only exist on the server
 //void AxplodeGameModeBase::SpawnBall()

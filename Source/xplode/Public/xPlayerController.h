@@ -14,6 +14,7 @@
 #include "../xplodeGameModeBase.h"
 #include "xBaseCharacter.h"
 #include <GameFramework/Character.h>
+#include "xplodeGameStateBase.h"
 #include "xPlayerController.generated.h"
 
 /**
@@ -68,5 +69,10 @@ protected:
 	void BeginPlay() override;
 
 private: 
+	
+	UPROPERTY()
 	AxplodeGameModeBase* GameMode;
+
+	UPROPERTY()
+	AxplodeGameStateBase* GameState;
 };

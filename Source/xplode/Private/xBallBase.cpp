@@ -55,9 +55,14 @@ void AxBallBase::CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, c
 			IxBaseCharacterInterface::Execute_PickupBall(OtherActor, this);
 			//Destroy();
 		}
-		else if (OtherActor->ActorHasTag("Goal"))
+		else if (OtherActor->ActorHasTag("Goal") && !bScored)
 		{
-			GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Yellow, TEXT("GOAL!!!!!"));
+			bScored = true;
+			MulticastPlayScoreSFX();
+			
+			FTimerHandle UnusedHandle;
+			GetWorldTimerManager().SetTimer(
+				UnusedHandle, this, &AxBallBase::DestroyAndSpawnNewBall, 3.f, false);
 			
 		}
 		
@@ -107,6 +112,8 @@ void AxBallBase::BeginPlay()
 	// VFX are not being replicated so load refs in client / server
 	LoadDynamicRefs();
 
+	GameState = Cast<AxplodeGameStateBase>(GetWorld()->GetGameState());
+
 	// SphereComponent is replicated so just set the staticmesh on server
 	if (HasAuthority())
 	{
@@ -151,6 +158,11 @@ void AxBallBase::MulticastAddSelfAsCameraTarget_Implementation()
 	}
 }
 
+void AxBallBase::MulticastPlayScoreSFX_Implementation()
+{
+	UGameplayStatics::PlaySoundAtLocation(GetWorld(), ScoreSoundFx, GetActorLocation());
+}
+
 void AxBallBase::StopWarn()
 {
 	if (IsValid(AudioComponent))
@@ -189,7 +201,7 @@ void AxBallBase::LoadDynamicRefs()
 {
 	ExplosionParticle = Cast<UParticleSystem>(StaticLoadObject(UParticleSystem::StaticClass(), NULL, TEXT("ParticleSystem'/Game/BallisticsVFX/Particles/Explosive/Explosion_GrenadeLauncher_1.Explosion_GrenadeLauncher_1'")));
 	ExplosionSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/Battle_Royale_Game/Cues/Explosions/Explosion_Grenade_Close_2_Bomb_Explode_Fiery_Loud_Cue.Explosion_Grenade_Close_2_Bomb_Explode_Fiery_Loud_Cue'")));
-	//WarningSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/SciFiWeaponsCyberpunkArsenal/cues/Support_Material/Targeting/BEEP_Targeting_Loop_04_Cue.BEEP_Targeting_Loop_04_Cue'")));
+	ScoreSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/_Main/SFX/Score_Cue.Score_Cue'")));
 }
 
 void AxBallBase::SetStaticMesh()
@@ -235,6 +247,12 @@ void AxBallBase::SelfDestroy()
 	GetOwner()->Destroy();
 	Destroy();
 	
+}
+
+void AxBallBase::DestroyAndSpawnNewBall()
+{
+	GameState->bShouldSpawnNewBall = true;
+	Destroy();
 }
 
 //Called every frame

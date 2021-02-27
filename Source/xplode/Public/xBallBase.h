@@ -13,6 +13,7 @@
 #include "Components/AudioComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
+#include "xplodeGameStateBase.h"
 #include "xBallBase.generated.h"
 
 
@@ -54,7 +55,7 @@ public:
 		void CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, class AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	UFUNCTION()
-	void Shoot (FVector Force);
+		void Shoot(FVector Force);
 
 	UFUNCTION()
 		void PlayWarn();
@@ -101,7 +102,7 @@ public:
 
 	UPROPERTY()
 		UAudioComponent* AudioComponent;
-	
+
 	UPROPERTY(BlueprintAssignable, Category = "Events")
 		FPlayWarningEvent OnWarning;
 
@@ -112,13 +113,25 @@ protected:
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastAddSelfAsCameraTarget();
 
+	UFUNCTION(NetMulticast, Unreliable)
+		void MulticastPlayScoreSFX();
+
 private:
 	// Note to self: This timer needs to be set on server
 	UPROPERTY()
 		FTimerHandle ExplodeLevelIncrementTimerHandle;
 
 	UPROPERTY()
+		AxplodeGameStateBase* GameState;
+
+	UPROPERTY()
+		bool bScored;
+
+	UPROPERTY()
 		float ExplodesAt = 5;
+
+	UPROPERTY()
+		USoundCue* ScoreSoundFx;
 
 	UFUNCTION()
 		void ClearTimer();
@@ -134,6 +147,9 @@ private:
 
 	UFUNCTION()
 		void SetStaticMesh();
+
+	UFUNCTION()
+		void DestroyAndSpawnNewBall();
 
 
 };

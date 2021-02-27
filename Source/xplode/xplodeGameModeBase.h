@@ -4,14 +4,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/GameModeBase.h"
 #include "xPlayerStartBase.h"
 #include "xBaseCharacter.h"
+#include "GameFramework/GameMode.h"
 #include "xplodeGameModeBase.generated.h"
 
 
 UCLASS()
-class XPLODE_API AxplodeGameModeBase : public AGameModeBase
+class XPLODE_API AxplodeGameModeBase : public AGameMode
 {
 	GENERATED_BODY()
 public:
@@ -26,19 +26,25 @@ public:
 
 protected:
 	virtual void PostLogin(APlayerController* NewPlayer) override;
-	// Called when the game starts or when spawned
+	
 	virtual void BeginPlay() override;
 
+	//virtual bool ReadyToStartMatch_Implementation() override;
+
 private:
-	UPROPERTY()
-	TArray<AxPlayerStartBase*> BlueSpanwPoints;
-	UPROPERTY()
-	TArray<AxPlayerStartBase*> RedSpawnPoints;
-	UPROPERTY()
-	TArray<APlayerController*> PlayerControllerList;
 	UFUNCTION()
 	void GetBluePrintPlayerClassRefs();
-	/*UFUNCTION()
-	void SpawnBall();*/
+
+	UPROPERTY()
+		TArray<AxPlayerStartBase*> BlueSpanwPoints;
+	
+	UPROPERTY()
+		TArray<AxPlayerStartBase*> RedSpawnPoints;
+	
+	UPROPERTY()
+		TArray<APlayerController*> PlayerControllerList;
+
+	UPROPERTY()
+	int32 MinPlayersNeededToStart = 1;
 
 };

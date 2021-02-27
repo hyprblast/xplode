@@ -7,6 +7,8 @@
 #include "xBallBase.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Sound/SoundCue.h"
+#include "xplodeGameStateBase.h"
 #include "xBallSpawnerBase.generated.h"
 
 UCLASS()
@@ -26,13 +28,24 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+	
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastPlayBallSound();
 
 private:
+	UPROPERTY()
+		USoundCue* PlayBallSoundFx;
+
+	UPROPERTY()
+		AxplodeGameStateBase* GameState;
+
+	UFUNCTION()
+		void LoadDynamicRefs();
+	
 	UFUNCTION()
 	void SpawnBall();
 
-//public:	
-//	// Called every frame
-//	virtual void Tick(float DeltaTime) override;
+public:	
+	virtual void Tick(float DeltaTime) override;
 
 };

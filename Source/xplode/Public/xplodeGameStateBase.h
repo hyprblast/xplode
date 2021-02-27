@@ -4,17 +4,23 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/GameStateBase.h"
-#include <GameFramework/Actor.h>
+#include "GameFramework/Actor.h"
 #include "xGameCamera.h"
+#include "GameFramework/GameState.h"
 #include "xplodeGameStateBase.generated.h"
 
 /**
  *
  */
 UCLASS()
-class XPLODE_API AxplodeGameStateBase : public AGameStateBase
+class XPLODE_API AxplodeGameStateBase : public AGameState
 {
 	GENERATED_BODY()
+
+public:
+	AxplodeGameStateBase();
+
+	UPROPERTY(Replicated)
+	bool bShouldSpawnNewBall;
 
 };

@@ -75,6 +75,8 @@ void AxPlayerController::ServerSelectPlayerType_Implementation(FName TypeName)
 	if (GameMode != nullptr && GameMode)
 	{
 		GameMode->RequestSpawnPlayerType(TypeName, this);
+		GameState->bShouldSpawnNewBall = true;
+	
 	}
 }
 
@@ -132,8 +134,11 @@ void AxPlayerController::ClientHideMouse_Implementation()
 
 void AxPlayerController::BeginPlay()
 {
-	// Get reference to the game mode
+	Super::BeginPlay();
+
 	GameMode = Cast<AxplodeGameModeBase>(GetWorld()->GetAuthGameMode());
+	
+	GameState = Cast<AxplodeGameStateBase>(GetWorld()->GetGameState());
 }
 
 //void AxPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
