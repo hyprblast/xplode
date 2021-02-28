@@ -324,7 +324,7 @@ void AxBaseCharacter::PlayThrowBallAnim()
 
 void AxBaseCharacter::CamToggle()
 {
-	switch (CameraVieww)
+	/*switch (CameraVieww)
 	{
 	case UxCameraView::FirstPerson:
 		ServerSetTopDownViewSettings();
@@ -334,7 +334,7 @@ void AxBaseCharacter::CamToggle()
 		break;
 	default:
 		break;
-	}
+	}*/
 }
 
 

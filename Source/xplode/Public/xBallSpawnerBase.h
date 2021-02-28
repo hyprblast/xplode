@@ -32,9 +32,16 @@ protected:
 	UFUNCTION(NetMulticast, Unreliable)
 	void MulticastPlayBallSound();
 
+	UFUNCTION(NetMulticast, Unreliable)
+		void MulticastPlayBackgroundSound();
+
 private:
 	UPROPERTY()
+	bool bIsBackgroundPlaying;
+	UPROPERTY()
 		USoundCue* PlayBallSoundFx;
+	UPROPERTY()
+		USoundCue* BackgroundSoundFx;
 
 	UPROPERTY()
 		AxplodeGameStateBase* GameState;

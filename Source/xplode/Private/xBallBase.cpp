@@ -26,8 +26,9 @@ AxBallBase::AxBallBase()
 	SphereComp->CastShadow = false;
 	/*SphereComp->SetLinearDamping(0);*/
 	SphereComp->SetSimulatePhysics(false);
-	
-	
+	SphereComp->SetNotifyRigidBodyCollision(true);
+
+
 	/*SphereComp->SetNotifyRigidBodyCollision(true);*/
 
 
@@ -41,6 +42,8 @@ AxBallBase::AxBallBase()
 
 	bReplicates = true;
 	SetReplicateMovement(true);
+
+	Tags.Add("Ball");
 }
 
 void AxBallBase::CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, class AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -59,13 +62,13 @@ void AxBallBase::CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, c
 		{
 			bScored = true;
 			MulticastPlayScoreSFX();
-			
+
 			FTimerHandle UnusedHandle;
 			GetWorldTimerManager().SetTimer(
 				UnusedHandle, this, &AxBallBase::DestroyAndSpawnNewBall, 3.f, false);
-			
+
 		}
-		
+
 
 	}
 }
@@ -119,13 +122,14 @@ void AxBallBase::BeginPlay()
 	{
 		SetStaticMesh();
 		SphereComp->OnComponentBeginOverlap.AddDynamic(this, &AxBallBase::CallOnOverlap);
+		SphereComp->OnComponentHit.AddDynamic(this, &AxBallBase::OnCompHit);
 		MulticastAddSelfAsCameraTarget();
 	}
 }
 
 void AxBallBase::MulticastExplode_Implementation()
 {
-	
+
 	UGameplayStatics::PlaySoundAtLocation(GetWorld(), ExplosionSoundFx, GetActorLocation());
 	UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ExplosionParticle, GetActorLocation(), FRotator(0, 0, 0));
 
@@ -142,6 +146,36 @@ void AxBallBase::PlayWarn()
 	/*AudioComponent = UGameplayStatics::SpawnSoundAtLocation(GetWorld(), WarningSoundFx, GetActorLocation());*/
 }
 
+void AxBallBase::OnCompHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+{
+
+
+	if (IsValid(OtherActor) && (OtherActor->ActorHasTag("Goal") || OtherActor->ActorHasTag("Wall")))
+	{
+
+		EPhysicalSurface SurfaceType = UPhysicalMaterial::DetermineSurfaceType(Hit.PhysMaterial.Get());
+
+			switch (SurfaceType)
+			{
+			case WALL:
+				MulticastPlayBallHitWallFX();
+					break;
+			case POST:
+				if (!bScored)
+				{
+					MulticastPlayBallHitPostSFX();
+
+				}
+				break;
+			default:
+				break;
+			}
+
+	}
+
+
+}
+
 void AxBallBase::MulticastAddSelfAsCameraTarget_Implementation()
 {
 	TArray<AActor*> FoundCameras;
@@ -156,6 +190,16 @@ void AxBallBase::MulticastAddSelfAsCameraTarget_Implementation()
 		Cam1->FollowActor = this;
 		Cam2->FollowActor = this;
 	}
+}
+
+void AxBallBase::MulticastPlayBallHitPostSFX_Implementation()
+{
+	UGameplayStatics::PlaySoundAtLocation(GetWorld(), HitPostSoundFx, GetActorLocation());
+}
+
+void AxBallBase::MulticastPlayBallHitWallFX_Implementation()
+{
+	UGameplayStatics::PlaySoundAtLocation(GetWorld(), HitWallSoundFx, GetActorLocation());
 }
 
 void AxBallBase::MulticastPlayScoreSFX_Implementation()
@@ -181,7 +225,7 @@ void AxBallBase::OnTimerElapsed()
 {
 	ExplodeLevel += 1;
 
-	if (ExplodeLevel == ExplodesAt -2)
+	if (ExplodeLevel == ExplodesAt - 2)
 	{
 		PlayWarn();
 	}
@@ -202,6 +246,8 @@ void AxBallBase::LoadDynamicRefs()
 	ExplosionParticle = Cast<UParticleSystem>(StaticLoadObject(UParticleSystem::StaticClass(), NULL, TEXT("ParticleSystem'/Game/BallisticsVFX/Particles/Explosive/Explosion_GrenadeLauncher_1.Explosion_GrenadeLauncher_1'")));
 	ExplosionSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/Battle_Royale_Game/Cues/Explosions/Explosion_Grenade_Close_2_Bomb_Explode_Fiery_Loud_Cue.Explosion_Grenade_Close_2_Bomb_Explode_Fiery_Loud_Cue'")));
 	ScoreSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/_Main/SFX/Score_Cue.Score_Cue'")));
+	HitPostSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/_Main/SFX/HitPost_Cue.HitPost_Cue'")));
+	HitWallSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/_Main/SFX/HitWall_Cue.HitWall_Cue'")));
 }
 
 void AxBallBase::SetStaticMesh()
@@ -246,7 +292,7 @@ void AxBallBase::SelfDestroy()
 {
 	GetOwner()->Destroy();
 	Destroy();
-	
+
 }
 
 void AxBallBase::DestroyAndSpawnNewBall()

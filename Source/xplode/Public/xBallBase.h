@@ -60,6 +60,9 @@ public:
 	UFUNCTION()
 		void PlayWarn();
 
+	UFUNCTION()
+		void OnCompHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+
 
 	// Called every frame
 	/*virtual void Tick(float DeltaTime) override;*/
@@ -116,8 +119,13 @@ protected:
 	UFUNCTION(NetMulticast, Unreliable)
 		void MulticastPlayScoreSFX();
 
+	UFUNCTION(NetMulticast, Unreliable)
+		void MulticastPlayBallHitPostSFX();
+
+	UFUNCTION(NetMulticast, Unreliable)
+		void MulticastPlayBallHitWallFX();
+
 private:
-	// Note to self: This timer needs to be set on server
 	UPROPERTY()
 		FTimerHandle ExplodeLevelIncrementTimerHandle;
 
@@ -132,6 +140,12 @@ private:
 
 	UPROPERTY()
 		USoundCue* ScoreSoundFx;
+
+	UPROPERTY()
+		USoundCue* HitPostSoundFx;
+
+	UPROPERTY()
+		USoundCue* HitWallSoundFx;
 
 	UFUNCTION()
 		void ClearTimer();
