@@ -81,7 +81,7 @@ AxBaseCharacter::AxBaseCharacter()
 	bReplicates = true;
 	SetReplicateMovement(true);
 
-	
+
 	/*static ConstructorHelpers::FObjectFinder<UBlueprint> GameCameraBP(TEXT("Blueprint'/Game/_Main/Actors/Blueprints/BP_GameCamera.BP_GameCamera'"));
 	GameCamera = Cast<AxGameCamera>(GameCameraBP.Object);*/
 
@@ -115,7 +115,7 @@ int32 AxBaseCharacter::ThrowBall_Implementation()
 
 int32 AxBaseCharacter::PickupBall_Implementation(AxBallBase* Ball)
 {
-	TPVBall = Ball;	
+	TPVBall = Ball;
 	MulticastPlayTPVPickupAnimation();
 	return 1;
 }
@@ -138,6 +138,7 @@ int32 AxBaseCharacter::AttachBall_Implementation()
 	{
 		AttachBallToTPVMesh();
 		SubscribeToBallWarnEvent();
+		SubscribeToBallExplodeEvent();
 	}
 	else if (IsLocallyControlled())
 	{
@@ -156,7 +157,7 @@ void AxBaseCharacter::BeginPlay()
 
 	OnTakeAnyDamage.AddDynamic(this, &AxBaseCharacter::HandleTakeAnyDamage);
 
-	MulticastSetTopDownViewSettings(); 
+	MulticastSetTopDownViewSettings();
 
 	/*FindTopDownCamera();
 
@@ -245,7 +246,7 @@ void AxBaseCharacter::MoveRight(float Value)
 
 void AxBaseCharacter::FindTopDownCamera()
 {
-	
+
 	TArray<AActor*> FoundCamActors;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AxGameCamera::StaticClass(), FoundCamActors);
 
@@ -262,13 +263,13 @@ void AxBaseCharacter::AttachBallToTPVMesh()
 
 	FName SocketName = TEXT("hand_socket");
 	USkeletalMeshComponent* TPVSkeletalMesh = GetMesh();
-	
+
 	FAttachmentTransformRules TransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::KeepWorld, true);
 	FTransform TPVSocketTransform = TPVSkeletalMesh->GetSocketTransform(SocketName, RTS_World);
 
 	TPVBall->AttachToComponent(TPVSkeletalMesh, TransformRules, SocketName);
 	TPVBall->StartTimer();
-	
+
 }
 
 
@@ -300,9 +301,15 @@ void AxBaseCharacter::OnBallWarn()
 	ClientPlayBallWarnEvent();
 }
 
+void AxBaseCharacter::OnBallExploding()
+{
+	ClientStopPlayBallWarn();
+	MulticastKilledByExplosion();
+}
+
 void AxBaseCharacter::Turn(float Value)
 {
-	
+
 	if (CameraVieww == UxCameraView::FirstPerson)
 	{
 		AxBaseCharacter::AddControllerYawInput(Value);
@@ -421,13 +428,37 @@ void AxBaseCharacter::MulticastSetTopDownViewSettings_Implementation()
 
 	}
 
-	
+
 
 	if (HasAuthority())
 	{
 		SkeletalMeshComp->SetHiddenInGame(true);
 		GetMesh()->bOwnerNoSee = false;
 		ClientActivateTopDownViewCam();
+	}
+}
+
+void AxBaseCharacter::MulticastKilledByExplosion_Implementation()
+{
+	if (CameraVieww == UxCameraView::TopDown)
+	{
+		// Ragdoll
+		USkeletalMeshComponent* TPVMesh = GetMesh();
+		TPVMesh->SetCollisionProfileName(TEXT("BlockAll"));
+		TPVMesh->SetAllBodiesSimulatePhysics(true);
+		TPVMesh->SetSimulatePhysics(true);
+		TPVMesh->WakeAllRigidBodies();
+		TPVMesh->bBlendPhysics = true;
+
+		UCharacterMovementComponent* MovementComponent = GetCharacterMovement();
+
+		MovementComponent->StopMovementImmediately();
+		MovementComponent->DisableMovement();
+		MovementComponent->SetComponentTickEnabled(false);
+
+		SetLifeSpan(10.0f);
+
+		TPVMesh->AddRadialForce(GetActorForwardVector(), 50.f, 15000.f, ERadialImpulseFalloff::RIF_Constant);
 	}
 }
 
@@ -461,6 +492,16 @@ void AxBaseCharacter::SubscribeToBallWarnEvent()
 void AxBaseCharacter::UnSubscribeToBallWarnEvent()
 {
 	TPVBall->OnWarning.RemoveDynamic(this, &AxBaseCharacter::OnBallWarn);
+}
+
+void AxBaseCharacter::SubscribeToBallExplodeEvent()
+{
+	TPVBall->OnExploding.AddDynamic(this, &AxBaseCharacter::OnBallExploding);
+}
+
+void AxBaseCharacter::UnSubscribeToBallExplodeEvent()
+{
+	TPVBall->OnExploding.RemoveDynamic(this, &AxBaseCharacter::OnBallExploding);
 }
 
 void AxBaseCharacter::ClientPlayBallWarnEvent_Implementation()
@@ -521,6 +562,7 @@ void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraFowardVector)
 	TPVBall->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 	TPVBall->Shoot(CameraFowardVector * FMath::Clamp(ThrowPower, MinThrowPower, MaxThrowPower));
 	UnSubscribeToBallWarnEvent();
+	UnSubscribeToBallExplodeEvent();
 	ClientStopPlayBallWarn();
 	DestroyBalls();
 }
@@ -565,7 +607,7 @@ void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 
 	PlayerInputComponent->BindAction("ThrowBall", IE_Pressed, this, &AxBaseCharacter::IncreaseThrowPower);
 	PlayerInputComponent->BindAction("ThrowBall", IE_Released, this, &AxBaseCharacter::PlayThrowBallAnim);
-	
+
 	PlayerInputComponent->BindAction("CamToggle", IE_Pressed, this, &AxBaseCharacter::CamToggle);
 }
 
@@ -603,13 +645,13 @@ void AxBaseCharacter::DestroyBalls()
 
 	GetWorldTimerManager().SetTimer(
 		HasBallTimerHandle, this, &AxBaseCharacter::SetHasBallFalse, .3f, false);
-	
-	
+
+
 	if (IsValid(FPVBall))
 	{
 		FPVBall->Destroy();
 	}
-	
+
 }
 
 void AxBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -624,6 +666,6 @@ void AxBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(AxBaseCharacter, MaxThrowPower);
 	DOREPLIFETIME(AxBaseCharacter, Health);
 	DOREPLIFETIME(AxBaseCharacter, bIsAddingThrowPower);
-	
+
 }
 

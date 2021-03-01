@@ -129,6 +129,9 @@ public:
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastSetTopDownViewSettings();
 
+	UFUNCTION(NetMulticast, Reliable)
+		void MulticastKilledByExplosion();
+
 	UFUNCTION(Client, Reliable)
 		void ClientActivateTopDownViewCam();
 
@@ -141,6 +144,12 @@ public:
 	UFUNCTION()
 		void UnSubscribeToBallWarnEvent();
 
+	UFUNCTION()
+		void SubscribeToBallExplodeEvent();
+
+	UFUNCTION()
+		void UnSubscribeToBallExplodeEvent();
+
 	UFUNCTION(Client, Reliable)
 		void ClientPlayBallWarnEvent();
 
@@ -149,6 +158,9 @@ public:
 
 	UFUNCTION()
 		void OnBallWarn();
+
+	UFUNCTION()
+		void OnBallExploding();
 
 	UFUNCTION()
 		void SetHasBallFalse();

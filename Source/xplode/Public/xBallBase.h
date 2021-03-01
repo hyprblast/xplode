@@ -20,6 +20,8 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FPlayWarningEvent);
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FExplodeEvent);
+
 UCLASS()
 class XPLODE_API AxBallBase : public AActor
 {
@@ -108,6 +110,9 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Events")
 		FPlayWarningEvent OnWarning;
+
+	UPROPERTY(BlueprintAssignable, Category = "Events")
+		FExplodeEvent OnExploding;
 
 protected:
 	// Called when the game starts or when spawned

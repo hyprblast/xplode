@@ -233,9 +233,13 @@ void AxBallBase::OnTimerElapsed()
 	if (ExplodeLevel >= ExplodesAt && !bIsExploding)
 	{
 		bIsExploding = true;
-		//StopWarn();
-		// Clear timer
+		
+		StopWarn();
+		
 		ClearTimer();
+		
+		OnExploding.Broadcast();
+		
 		//// Explode
 		MulticastExplode();
 	}
