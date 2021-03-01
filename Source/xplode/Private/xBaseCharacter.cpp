@@ -458,7 +458,7 @@ void AxBaseCharacter::MulticastKilledByExplosion_Implementation()
 
 		SetLifeSpan(10.0f);
 
-		TPVMesh->AddRadialForce(GetActorForwardVector(), 50.f, 15000.f, ERadialImpulseFalloff::RIF_Constant);
+		TPVMesh->AddRadialForce(GetActorUpVector(), 50.f, 15000.f, ERadialImpulseFalloff::RIF_MAX);
 	}
 }
 
