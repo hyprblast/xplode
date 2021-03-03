@@ -11,6 +11,8 @@
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "Chaos/ChaosEngineInterface.h"
 #include "xplodeGameStateBase.h"
+#include "Perception/AISense_Sight.h"
+#include <Perception/AIPerceptionSystem.h>
 
 
 
@@ -36,9 +38,16 @@ AxBallBase::AxBallBase()
 	SphereComp->SetIsReplicated(true);
 	SphereComp->CanCharacterStepUp(false);
 	/*SphereComp->SetWorldScale3D(FVector(1.5f, 1.5f, 1.5f));*/
-
+	
+	AIPerceptionStimuliSourceComp = CreateDefaultSubobject<UAIPerceptionStimuliSourceComponent>(TEXT("AIPerceptionStimuli"));
+	AIPerceptionStimuliSourceComp->bAutoRegister = true;
+	AIPerceptionStimuliSourceComp->RegisterForSense(TSubclassOf<UAISense_Sight>());
+	AIPerceptionStimuliSourceComp->RegisterWithPerceptionSystem();
+	
 
 	SetRootComponent(SphereComp);
+
+	
 
 	bReplicates = true;
 	SetReplicateMovement(true);
@@ -111,6 +120,8 @@ void AxBallBase::Shoot(FVector Force)
 void AxBallBase::BeginPlay()
 {
 	Super::BeginPlay();
+
+	UAIPerceptionSystem::RegisterPerceptionStimuliSource(this, UAISense_Sight::StaticClass(), this);
 
 	// VFX are not being replicated so load refs in client / server
 	LoadDynamicRefs();

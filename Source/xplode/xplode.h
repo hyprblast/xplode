@@ -8,6 +8,7 @@
 //#define XBALTRACE_CHANNEL			ECC_GameTraceChannel2
 #define XGOALOBJECT_CHANNEL         ECC_GameTraceChannel2
 #define XGOALPOSTOBJECT_CHANNEL     ECC_GameTraceChannel3
+#define XPUNCHOBJECT_CHANNEL        ECC_GameTraceChannel4
 #define HEAD						SurfaceType1
 #define TORSO						SurfaceType2
 #define ARMS						SurfaceType3

@@ -70,6 +70,26 @@ AxBaseCharacter::AxBaseCharacter()
 	MovementComponent->SetIsReplicated(true);
 	MovementComponent->bUseControllerDesiredRotation = true;
 
+	FAttachmentTransformRules TransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::KeepWorld, true);
+
+	LeftHandCollisionComp = CreateDefaultSubobject<USphereComponent>(TEXT("LeftHandCollision"));
+	LeftHandCollisionComp->SetSphereRadius(17.f);
+	LeftHandCollisionComp->SetGenerateOverlapEvents(true);
+	LeftHandCollisionComp->SetCollisionObjectType(XPUNCHOBJECT_CHANNEL);
+	LeftHandCollisionComp->SetCollisionProfileName(TEXT("xPunchCollision"));
+	LeftHandCollisionComp->CanCharacterStepUp(false);
+	LeftHandCollisionComp->AttachToComponent(GetMesh(), TransformRules, TEXT("hand_l"));
+
+
+	RightHandCollisionComp = CreateDefaultSubobject<USphereComponent>(TEXT("RighttHandCollision"));
+	RightHandCollisionComp->SetSphereRadius(17.f);
+	RightHandCollisionComp->SetGenerateOverlapEvents(true);
+	RightHandCollisionComp->SetCollisionObjectType(XPUNCHOBJECT_CHANNEL);
+	RightHandCollisionComp->SetCollisionProfileName(TEXT("xPunchCollision"));
+	RightHandCollisionComp->CanCharacterStepUp(false);
+	RightHandCollisionComp->AttachToComponent(GetMesh(), TransformRules, TEXT("hand_r"));
+
+
 	/*GetCharacterMovement()->PushForceFactor =0;
 	GetCharacterMovement()->InitialPushForceFactor = 0;
 	GetCharacterMovement()->MaxTouchForce = 0;
@@ -87,9 +107,27 @@ AxBaseCharacter::AxBaseCharacter()
 
 }
 
+void AxBaseCharacter::CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, class AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+
+	if (IsValid(OtherActor)
+		&& OtherActor->ActorHasTag("Player") 
+		&& OtherActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass())
+		&& IxBaseCharacterInterface::Execute_GetPlayerType(OtherActor) != PlayerTypeName
+		&& bIsPunching)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("PUNCH"));
+	}
+}
+
 bool AxBaseCharacter::GetPlayerIsThrowing_Implementation()
 {
 	return bIsThrowing;
+}
+
+FName AxBaseCharacter::GetPlayerType_Implementation()
+{
+	return PlayerTypeName;
 }
 
 bool AxBaseCharacter::GetPlayerHasBall_Implementation()
@@ -105,6 +143,12 @@ int32 AxBaseCharacter::SetPlayerIsThrowing_Implementation(bool bPlayerIsThrowing
 	return 1;
 }
 
+
+int32 AxBaseCharacter::SetPlayerIsPunching_Implementation(bool bPlayerIsThrowing)
+{
+	ServerSetPLayerIsPunching(bPlayerIsThrowing);
+	return 1;
+}
 
 int32 AxBaseCharacter::ThrowBall_Implementation()
 {
@@ -155,7 +199,12 @@ void AxBaseCharacter::BeginPlay()
 
 	LoadDynamicRefs();
 
-	OnTakeAnyDamage.AddDynamic(this, &AxBaseCharacter::HandleTakeAnyDamage);
+	if (HasAuthority())
+	{
+		OnTakeAnyDamage.AddDynamic(this, &AxBaseCharacter::HandleTakeAnyDamage);
+		LeftHandCollisionComp->OnComponentBeginOverlap.AddDynamic(this, &AxBaseCharacter::CallOnOverlap);
+		RightHandCollisionComp->OnComponentBeginOverlap.AddDynamic(this, &AxBaseCharacter::CallOnOverlap);
+	}
 
 	MulticastSetTopDownViewSettings();
 
@@ -268,7 +317,7 @@ void AxBaseCharacter::AttachBallToTPVMesh()
 	FTransform TPVSocketTransform = TPVSkeletalMesh->GetSocketTransform(SocketName, RTS_World);
 
 	TPVBall->AttachToComponent(TPVSkeletalMesh, TransformRules, SocketName);
-	TPVBall->StartTimer();
+	/*TPVBall->StartTimer();*/
 
 }
 
@@ -292,6 +341,8 @@ void AxBaseCharacter::LoadDynamicRefs()
 	ThrowBallMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/ThrowBallAnimMontage.ThrowBallAnimMontage'")));
 	ThrowBallMontageTPV = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/ThrowBallAnimMontageTPV.ThrowBallAnimMontageTPV'")));
 	PickupBallMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/PickUpAnimMontage.PickUpAnimMontage'")));
+	PunchLeftMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/PunchLeftAnimMontage.PunchLeftAnimMontage'")));
+	PunchRightMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/PunchRightAnimMontage.PunchRightAnimMontage'")));
 	ThrowPowerIncreaseSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/SciFiWeaponsCyberpunkArsenal/cues/Support_Material/Charge/SCIMisc_Charge_Weapon_15_Cue.SCIMisc_Charge_Weapon_15_Cue'")));
 	WarningSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/SciFiWeaponsCyberpunkArsenal/cues/Support_Material/Targeting/BEEP_Targeting_Loop_04_Cue.BEEP_Targeting_Loop_04_Cue'")));
 }
@@ -357,6 +408,38 @@ void AxBaseCharacter::IncreaseThrowPower()
 
 		ServerIncreaseThrowPower();
 	}
+}
+
+void AxBaseCharacter::PlayPunchLeftAnim()
+{
+	if (!bIsPunching)
+	{
+		SkeletalMeshComp->GetAnimInstance()->Montage_Play(PunchLeftMontage);
+		ServerPlayTPVPunchLeftAnim();
+	}
+	
+	/*if (!SkeletalMeshComp->GetAnimInstance()->Montage_IsPlaying(PunchLeftMontage))
+	{
+		
+	}*/
+
+}
+
+void AxBaseCharacter::PlayPunchRightAnim()
+{
+
+	if (!bIsPunching)
+	{
+		//TODO: Maybe if has ball needs other animation ???
+		SkeletalMeshComp->GetAnimInstance()->Montage_Play(PunchRightMontage);
+		ServerPlayTPVPunchRightAnim();
+	}
+	
+	/*if (!SkeletalMeshComp->GetAnimInstance()->Montage_IsPlaying(PunchRightMontage))
+	{
+		
+	}*/
+
 }
 
 void AxBaseCharacter::ServerIncreaseThrowPower_Implementation()
@@ -458,7 +541,7 @@ void AxBaseCharacter::MulticastKilledByExplosion_Implementation()
 
 		SetLifeSpan(10.0f);
 
-		TPVMesh->AddRadialForce(GetActorUpVector(), 50.f, 15000.f, ERadialImpulseFalloff::RIF_MAX);
+		/*TPVMesh->AddRadialForce(GetActorUpVector(), 50.f, 15000.f, ERadialImpulseFalloff::RIF_MAX);*/
 	}
 }
 
@@ -541,6 +624,28 @@ bool AxBaseCharacter::ServerPlayTPVThrowBallAnim_Validate()
 	return true;
 }
 
+void AxBaseCharacter::ServerPlayTPVPunchLeftAnim_Implementation()
+{
+	bIsPunching = true;
+	MulticastPlayTPVPunchLeftAnimation();
+}
+
+bool AxBaseCharacter::ServerPlayTPVPunchLeftAnim_Validate()
+{
+	return true;
+}
+
+void AxBaseCharacter::ServerPlayTPVPunchRightAnim_Implementation()
+{
+	bIsPunching = true;
+	MulticastPlayTPVPunchRightAnimation();
+}
+
+bool AxBaseCharacter::ServerPlayTPVPunchRightAnim_Validate()
+{
+	return true;
+}
+
 void AxBaseCharacter::MulticastPlayTPVPickupAnimation_Implementation()
 {
 	if (IsValid(PickupBallMontage))
@@ -556,6 +661,22 @@ void AxBaseCharacter::MulticastPlayTPVPickupAnimation_Implementation()
 	}
 }
 
+
+void AxBaseCharacter::MulticastPlayTPVPunchLeftAnimation_Implementation()
+{
+	if (IsValid(PunchLeftMontage))
+	{
+		GetMesh()->GetAnimInstance()->Montage_Play(PunchLeftMontage);
+	}
+}
+
+void AxBaseCharacter::MulticastPlayTPVPunchRightAnimation_Implementation()
+{
+	if (IsValid(PunchRightMontage))
+	{
+		GetMesh()->GetAnimInstance()->Montage_Play(PunchRightMontage);
+	}
+}
 
 void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraFowardVector)
 {
@@ -578,6 +699,16 @@ void AxBaseCharacter::ServerSetPLayerIsThrowing_Implementation(bool bPlayerIsThr
 }
 
 bool AxBaseCharacter::ServerSetPLayerIsThrowing_Validate(bool bPlayerIsThrowing)
+{
+	return true;
+}
+
+void AxBaseCharacter::ServerSetPLayerIsPunching_Implementation(bool bPlayerIsPunching)
+{
+	bIsPunching = bPlayerIsPunching;
+}
+
+bool AxBaseCharacter::ServerSetPLayerIsPunching_Validate(bool bPlayerIsPunching)
 {
 	return true;
 }
@@ -607,6 +738,9 @@ void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 
 	PlayerInputComponent->BindAction("ThrowBall", IE_Pressed, this, &AxBaseCharacter::IncreaseThrowPower);
 	PlayerInputComponent->BindAction("ThrowBall", IE_Released, this, &AxBaseCharacter::PlayThrowBallAnim);
+
+	PlayerInputComponent->BindAction("PunchLeft", IE_Pressed, this, &AxBaseCharacter::PlayPunchLeftAnim);
+	PlayerInputComponent->BindAction("PunchRight", IE_Pressed, this, &AxBaseCharacter::PlayPunchRightAnim);
 
 	PlayerInputComponent->BindAction("CamToggle", IE_Pressed, this, &AxBaseCharacter::CamToggle);
 }
@@ -666,6 +800,12 @@ void AxBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(AxBaseCharacter, MaxThrowPower);
 	DOREPLIFETIME(AxBaseCharacter, Health);
 	DOREPLIFETIME(AxBaseCharacter, bIsAddingThrowPower);
+	DOREPLIFETIME(AxBaseCharacter, PlayerTypeName);
+	DOREPLIFETIME(AxBaseCharacter, bIsPunching);
+	DOREPLIFETIME(AxBaseCharacter, bIsBlocking);
+	DOREPLIFETIME(AxBaseCharacter, bwasPunchedLeft);
+	DOREPLIFETIME(AxBaseCharacter, bwasPunchedRight);
+	
 
 }
 

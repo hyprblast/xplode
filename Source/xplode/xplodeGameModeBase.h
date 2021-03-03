@@ -29,7 +29,7 @@ protected:
 	
 	virtual void BeginPlay() override;
 
-	//virtual bool ReadyToStartMatch_Implementation() override;
+	virtual bool ReadyToStartMatch_Implementation() override;
 
 private:
 	UFUNCTION()

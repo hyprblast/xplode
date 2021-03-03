@@ -27,6 +27,9 @@ public:
 		int32 SetPlayerIsThrowing(bool bPlayerIsThrowing);
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 SetPlayerIsPunching(bool bPlayerIsPunching);
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		float GetInputAxisYawValue();
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
@@ -40,5 +43,8 @@ public:
 	
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 PickupBall(AxBallBase* Ball);
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		FName GetPlayerType();
 	
 };

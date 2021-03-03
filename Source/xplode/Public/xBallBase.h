@@ -14,6 +14,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "xplodeGameStateBase.h"
+#include "Perception/AIPerceptionStimuliSourceComponent.h"
 #include "xBallBase.generated.h"
 
 
@@ -77,6 +78,9 @@ public:
 
 	/*UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 		UProjectileMovementComponent* ProjectileMovementComp;*/
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+		UAIPerceptionStimuliSourceComponent* AIPerceptionStimuliSourceComp;
 
 	UPROPERTY()
 		AActor* LastPlayerOwner;

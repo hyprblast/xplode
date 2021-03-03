@@ -26,14 +26,22 @@ AxplodeGameModeBase::AxplodeGameModeBase()
 
 void AxplodeGameModeBase::RequestSpawnPlayerType(FName TypeName, APlayerController* PlayerController)
 {
+	if (!ReadyToStartMatch())
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Cannot start game, not enough players !"));
+	}
+	
 	int32 Length = TypeName == TEXT("Blue") ? BlueSpanwPoints.Num() : RedSpawnPoints.Num();
 
+	/*PlayerController->Tags.Add(TypeName);*/
 	PlayerControllerList.Add(PlayerController);
+	
 
-	if (Length > 0 && PlayerUIClasses.Num() == 2)
+	if (Length > 0 && PlayerUIClasses.Num() == 4)
 	{
 		int32 Rand = FMath::RandRange(0, Length - 1);
 		int32 PlayerUIClassIndex = TypeName == TEXT("Blue") ? 0 : 1;
+	
 
 		FTransform Transform = TypeName == TEXT("Blue") ? BlueSpanwPoints[Rand]->GetTransform() : RedSpawnPoints[Rand]->GetTransform();
 		FRotator Rotator = FRotator(0, TypeName == TEXT("Blue") ? -90.f : 90.f, 0);
@@ -41,8 +49,21 @@ void AxplodeGameModeBase::RequestSpawnPlayerType(FName TypeName, APlayerControll
 
 		if (PlayerController->GetClass()->ImplementsInterface(UxPlayerControllerInterface::StaticClass()))
 		{
-			//UE_LOG(LogTemp, Log, TEXT("Post Login"));
 			IxPlayerControllerInterface::Execute_SpawnPlayer(PlayerController, PlayerUIClasses[PlayerUIClassIndex], Transform, TypeName);
+
+			// Temporary: Spawn 1 bot from the opposite team
+			int32 BotUIClassIndex = TypeName == TEXT("Blue") ? 3 : 2;
+			Transform = TypeName == TEXT("Blue") ?  RedSpawnPoints[Rand]->GetTransform() : BlueSpanwPoints[Rand]->GetTransform();
+
+
+			FActorSpawnParameters spawnParams;
+			spawnParams.Owner = this;
+			spawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+			AxBaseCharacter* SpawnedPlayer = GetWorld()->SpawnActor<AxBaseCharacter>(PlayerUIClasses[BotUIClassIndex], Transform, spawnParams);
+
+			SpawnedPlayer->PlayerTypeName = TypeName == TEXT("Blue") ? TEXT("Red") : TEXT("Blue");
+			
 		}
 	}
 }
@@ -125,30 +146,27 @@ void AxplodeGameModeBase::BeginPlay()
 }
 
 
-//bool AxplodeGameModeBase::ReadyToStartMatch_Implementation()
-//{
-//	//return Super::ReadyToStartMatch_Implementation();
-//
-//	GEngine->AddOnScreenDebugMessage(-1, .5f, FColor::Cyan, TEXT("ReadyToStartMatch_Implementation"));
-//	return false;
-//}
 
-//bool AxplodeGameModeBase::ReadyToStartMatch_Implementation()
-//{
-//	Super::ReadyToStartMatch();
-//
-//	return NumPlayers >= MinPlayersNeededToStart;
-//}
+bool AxplodeGameModeBase::ReadyToStartMatch_Implementation()
+{
+	//return Super::ReadyToStartMatch_Implementation();
+	return NumPlayers >= MinPlayersNeededToStart;
+}
+
 
 void AxplodeGameModeBase::GetBluePrintPlayerClassRefs()
 {
 	static ConstructorHelpers::FClassFinder<AxBaseCharacter> BluePlayerUIBPClass(TEXT("/Game/_Main/Characters/Blueprints/BP_xBluePlayer.BP_xBluePlayer_C"));
 	static ConstructorHelpers::FClassFinder<AxBaseCharacter> RedPlayerUIBPClass(TEXT("/Game/_Main/Characters/Blueprints/BP_xRedPlayer.BP_xRedPlayer_C"));
-
+	static ConstructorHelpers::FClassFinder<AxBaseCharacter> BlueBotUIBPClass(TEXT("/Game/_Main/Characters/Blueprints/BP_xBlueBot.BP_xBlueBot_C"));
+	static ConstructorHelpers::FClassFinder<AxBaseCharacter> RedBotUIBPClass(TEXT("/Game/_Main/Characters/Blueprints/BP_xRedBot.BP_xRedBot_C"));
+	
 	if (BluePlayerUIBPClass.Class != nullptr && BluePlayerUIBPClass.Succeeded() && RedPlayerUIBPClass.Class != nullptr && RedPlayerUIBPClass.Succeeded())
 	{
 		PlayerUIClasses.Add(BluePlayerUIBPClass.Class);
 		PlayerUIClasses.Add(RedPlayerUIBPClass.Class);
+		PlayerUIClasses.Add(BlueBotUIBPClass.Class);
+		PlayerUIClasses.Add(RedBotUIBPClass.Class);
 	}
 }
 

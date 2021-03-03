@@ -13,6 +13,8 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "xCameraViewEnum.h"
 #include "xGameCamera.h"
+#include "Components/SphereComponent.h"
+#include "Components/PrimitiveComponent.h"
 #include "xBaseCharacter.generated.h"
 
 class UCameraComponent;
@@ -47,11 +49,29 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 		USkeletalMeshComponent* SkeletalMeshComp;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+		USphereComponent* LeftHandCollisionComp;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+		USphereComponent* RightHandCollisionComp;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
 		bool bHasBall;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
 		bool bIsThrowing;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
+		bool bIsPunching;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
+		bool bIsBlocking;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
+		bool bwasPunchedLeft;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
+		bool bwasPunchedRight;
 
 	UPROPERTY()
 		UAudioComponent* ThrowPowerAudioComponent;
@@ -65,12 +85,16 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
 		USoundCue* WarningSoundFx;
 
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Replicated)
 		FName PlayerTypeName;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerIsThrowing();  // This is the prototype declared in the interface
 	virtual bool GetPlayerIsThrowing_Implementation() override; // This is the declaration of the implementation
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		FName GetPlayerType();
+	virtual FName GetPlayerType_Implementation() override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerHasBall();
@@ -79,6 +103,10 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SetPlayerIsThrowing(bool bPlayerIsThrowing);
 	virtual int32 SetPlayerIsThrowing_Implementation(bool bPlayerIsThrowing) override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 SetPlayerIsPunching(bool bPlayerIsThrowing);
+	virtual int32 SetPlayerIsPunching_Implementation(bool bPlayerIsThrowing) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 ThrowBall();
@@ -100,6 +128,9 @@ public:
 		int32 AttachBall();
 	virtual int32 AttachBall_Implementation() override;
 
+	UFUNCTION()
+		void CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, class AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
 
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerThrowBall(FVector CameraFowardVector);
@@ -107,17 +138,38 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerSetPLayerIsThrowing(bool bPlayerIsThrowing);
 
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerSetPLayerIsPunching(bool bPlayerIsPunching);
+
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastPlayTPVThrowAnimation();
 
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerPlayTPVThrowBallAnim();
 
-	UFUNCTION(NetMulticast, Reliable)
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerPlayTPVPunchLeftAnim();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerPlayTPVPunchRightAnim();
+
+	UFUNCTION(NetMulticast, Unreliable)
 		void MulticastPlayTPVPickupAnimation();
+
+	UFUNCTION(NetMulticast, Unreliable)
+		void MulticastPlayTPVPunchLeftAnimation();
+
+	UFUNCTION(NetMulticast, Unreliable)
+		void MulticastPlayTPVPunchRightAnimation();
 
 	UFUNCTION()
 		void IncreaseThrowPower();
+
+	UFUNCTION()
+		void PlayPunchLeftAnim();
+
+	UFUNCTION()
+		void PlayPunchRightAnim();
 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
@@ -228,6 +280,12 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Animation")
 		UAnimMontage* PickupBallMontage;
+
+	UPROPERTY(EditAnywhere, Category = "Animation")
+		UAnimMontage* PunchLeftMontage;
+
+	UPROPERTY(EditAnywhere, Category = "Animation")
+		UAnimMontage* PunchRightMontage;
 
 private:
 	UPROPERTY()

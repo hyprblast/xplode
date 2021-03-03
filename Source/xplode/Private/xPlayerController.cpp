@@ -47,8 +47,11 @@ int32 AxPlayerController::SpawnPlayer_Implementation(TSubclassOf<AxBaseCharacter
 
 	// Override transform on clients
 	ClientSetSpawnTransform(PlayerToSpawnTransform);
-
+	
+	SpawnedPlayer->PlayerTypeName = PlayerTypeName;
+	
 	SpawnedPlayer->ClientSetPlayerTypeName(PlayerTypeName);
+
 	//// Set top down default view
 	SpawnedPlayer->MulticastSetTopDownViewSettings();
 	
@@ -75,6 +78,7 @@ void AxPlayerController::ServerSelectPlayerType_Implementation(FName TypeName)
 	if (GameMode != nullptr && GameMode)
 	{
 		GameMode->RequestSpawnPlayerType(TypeName, this);
+		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, GameState->GetMatchState().ToString());
 		GameState->bShouldSpawnNewBall = true;
 	
 	}

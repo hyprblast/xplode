@@ -67,7 +67,7 @@ void AxBallSpawnerBase::SpawnBall()
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 		FTransform SpawnWhere = GetActorTransform();//UKismetMathLibrary::MakeTransform(FVector(1534, 1467, 248), FRotator(0, 0, 0), FVector(1.0f, 1.0f, 1.0f));
-		SpawnWhere.SetScale3D(FVector(1.3f,1.3f,1.3f));
+	/*	SpawnWhere.SetScale3D(FVector(1.3f,1.3f,1.3f));*/
 
 		AxBallBase* Ball = GetWorld()->SpawnActor<AxBallBase>(AxBallBase::StaticClass(), SpawnWhere, SpawnParams);
 		MulticastPlayBallSound();
