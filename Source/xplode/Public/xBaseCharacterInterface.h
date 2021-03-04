@@ -42,7 +42,10 @@ public:
 		int32 SetPlayerIsRightHit(bool bPlayerIsRightHit);
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 SetPlayerIsGettingPunched(bool bPlayerIsGettingPunched);
+		int32 SetPlayerIsGettingHit(bool bPlayerIsGettingHit);
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 PushPlayer(FVector Force);
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		float GetInputAxisYawValue();

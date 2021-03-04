@@ -11,6 +11,6 @@ void UEndGettingPunchedAnimNotify::Notify(USkeletalMeshComponent* MeshComp, UAni
 
 	if (IsValid(MeshComp) && IsValid(Player) && Player->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()))
 	{
-		IxBaseCharacterInterface::Execute_SetPlayerIsGettingPunched(Player, false);
+		IxBaseCharacterInterface::Execute_SetPlayerIsGettingHit(Player, false);
 	}
 }

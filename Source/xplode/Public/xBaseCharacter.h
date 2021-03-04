@@ -140,8 +140,12 @@ public:
 	virtual int32 SetPlayerIsRightHit_Implementation(bool bPlayerIsRightHit) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 SetPlayerIsGettingPunched(bool bPlayerIsGettingPunched);
-	virtual int32 SetPlayerIsGettingPunched_Implementation(bool bPlayerIsGettingPunched) override;
+		int32 PushPlayer(FVector Force);
+	virtual int32 PushPlayer_Implementation(FVector Force) override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 SetPlayerIsGettingHit(bool bPlayerIsGettingHit);
+	virtual int32 SetPlayerIsGettingHit_Implementation(bool bPlayerIsGettingHit) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 ThrowBall();
@@ -168,7 +172,7 @@ public:
 
 
 	UFUNCTION(Server, Reliable, WithValidation)
-		void ServerThrowBall(FVector CameraFowardVector);
+		void ServerThrowBall(FVector CameraFowardVector, bool bJustDropBall);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerSetPLayerIsThrowing(bool bPlayerIsThrowing);
@@ -177,7 +181,7 @@ public:
 		void ServerSetPLayerIsPunching(bool bPlayerIsPunching);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-		void ServerSetPLayerIsGettingPunched(bool bPlayerIsGettingPunched);
+		void ServerSetPlayerIsTakingHit(bool bPlayerIsTakingHit);
 
 	UFUNCTION(NetMulticast, Unreliable)
 		void MulticastPlayTPVThrowAnimation();

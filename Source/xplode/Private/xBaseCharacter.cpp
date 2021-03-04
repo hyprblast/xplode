@@ -135,7 +135,8 @@ void AxBaseCharacter::CallOnOverlap(class UPrimitiveComponent* OverlappedCompone
 				IxBaseCharacterInterface::Execute_SetPlayerIsLeftHit(OtherActor, false);
 			}
 
-			GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("PUNCH"));
+			IxBaseCharacterInterface::Execute_PushPlayer(OtherActor, FVector(GetActorForwardVector().X * 500.f,GetActorForwardVector().Y * 500.f, 100.f));
+
 			UGameplayStatics::ApplyPointDamage(OtherActor, PunchDamageType->Damage, CameraComp->GetForwardVector(), SweepResult, GetOwner()->GetInstigatorController(), this, PunchDamageType->StaticClass());
 
 		}
@@ -194,16 +195,22 @@ int32 AxBaseCharacter::SetPlayerIsRightHit_Implementation(bool bPlayerIsRightHit
 	return 1;
 }
 
-int32 AxBaseCharacter::SetPlayerIsGettingPunched_Implementation(bool bPlayerIsGettingPunched)
+int32 AxBaseCharacter::PushPlayer_Implementation(FVector Force)
 {
-	ServerSetPLayerIsGettingPunched(bPlayerIsGettingPunched);
+	LaunchCharacter(Force, true, true);
+	return 1;
+}
+
+int32 AxBaseCharacter::SetPlayerIsGettingHit_Implementation(bool bPlayerIsGettingHit)
+{
+	ServerSetPlayerIsTakingHit(bPlayerIsGettingHit);
 	return 1;
 }
 
 int32 AxBaseCharacter::ThrowBall_Implementation()
 {
 	/*const FVector FwVector (CameraComp->GetForwardVector().X, CameraComp->GetForwardVector().Y, CameraComp->GetForwardVector().Z);*/
-	ServerThrowBall(CameraComp->GetForwardVector());
+	ServerThrowBall(CameraComp->GetForwardVector(), false);
 	return 1;
 }
 
@@ -303,7 +310,7 @@ void AxBaseCharacter::HandleTakeAnyDamage(AActor* DamagedActor, float Damage, co
 		{
 			if (bIsRightHit)
 			{
-				if (IsValid(GettingPunchedRightMontage))
+				if (IsValid(GettingPunchedRightMontage) && !GetMesh()->GetAnimInstance()->Montage_IsPlaying(GettingPunchedRightMontage))
 				{
 					MulticastPlayTPVGettingPunchedRightAnimation();
 
@@ -311,7 +318,7 @@ void AxBaseCharacter::HandleTakeAnyDamage(AActor* DamagedActor, float Damage, co
 			}
 			else
 			{
-				if (IsValid(GettingPunchedLeftMontage))
+				if (IsValid(GettingPunchedLeftMontage) && !GetMesh()->GetAnimInstance()->Montage_IsPlaying(GettingPunchedRightMontage))
 				{
 					MulticastPlayTPVGettingPunchedLeftAnimation();
 				}
@@ -320,11 +327,11 @@ void AxBaseCharacter::HandleTakeAnyDamage(AActor* DamagedActor, float Damage, co
 			{
 				if (bIsRightHit)
 				{
-					ServerThrowBall(CameraComp->GetRightVector());
+					ServerThrowBall(CameraComp->GetRightVector(), true);
 				}
 				else
 				{
-					ServerThrowBall(-CameraComp->GetRightVector());
+					ServerThrowBall(-CameraComp->GetRightVector(), true);
 				}
 				
 			}
@@ -333,11 +340,7 @@ void AxBaseCharacter::HandleTakeAnyDamage(AActor* DamagedActor, float Damage, co
 
 		Health -= Damage;
 
-		if (Health <= 0 && !bIsDead)
-		{
-			bIsDead = true;
-			MulticastKilled();
-		}
+		
 	}
 
 	GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, FString::SanitizeFloat(Health));
@@ -358,6 +361,11 @@ void AxBaseCharacter::Tick(float DeltaTime)
 			{
 				GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, FString::SanitizeFloat(ThrowPower));
 			}
+		}
+		else if (Health <= 0 && !bIsDead)
+		{
+			bIsDead = true;
+			MulticastKilled();
 		}
 	}
 }
@@ -415,7 +423,7 @@ void AxBaseCharacter::AttachBallToTPVMesh()
 	FTransform TPVSocketTransform = TPVSkeletalMesh->GetSocketTransform(SocketName, RTS_World);
 
 	TPVBall->AttachToComponent(TPVSkeletalMesh, TransformRules, SocketName);
-	TPVBall->StartTimer();
+	/*TPVBall->StartTimer();*/
 
 }
 
@@ -445,7 +453,7 @@ void AxBaseCharacter::LoadDynamicRefs()
 	GettingPunchedRightMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/GettingPunchedRightAnimMontage.GettingPunchedRightAnimMontage'")));
 	ThrowPowerIncreaseSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/SciFiWeaponsCyberpunkArsenal/cues/Support_Material/Charge/SCIMisc_Charge_Weapon_15_Cue.SCIMisc_Charge_Weapon_15_Cue'")));
 	WarningSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/SciFiWeaponsCyberpunkArsenal/cues/Support_Material/Targeting/BEEP_Targeting_Loop_04_Cue.BEEP_Targeting_Loop_04_Cue'")));
-	DieSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/ParagonTwinblast/Characters/Heroes/TwinBlast/Sounds/SoundWaves/Death.Death'")));
+	DieSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/ParagonTwinblast/Characters/Heroes/TwinBlast/Sounds/SoundCues/Twinblast_Effort_Death.Twinblast_Effort_Death'")));
 }
 
 void AxBaseCharacter::OnBallWarn()
@@ -811,17 +819,17 @@ void AxBaseCharacter::MulticastPlayTPVGettingPunchedRightAnimation_Implementatio
 	}
 }
 
-void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraFowardVector)
+void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraFowardVector, bool bJustDropBall)
 {
 	TPVBall->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-	TPVBall->Shoot(CameraFowardVector * FMath::Clamp(ThrowPower, MinThrowPower, MaxThrowPower));
+	TPVBall->Shoot(CameraFowardVector * (!bJustDropBall ? FMath::Clamp(ThrowPower, MinThrowPower, MaxThrowPower) : 5000.f));
 	UnSubscribeToBallWarnEvent();
 	UnSubscribeToBallExplodeEvent();
 	ClientStopPlayBallWarn();
 	DestroyBalls();
 }
 
-bool AxBaseCharacter::ServerThrowBall_Validate(FVector CameraFowardVector)
+bool AxBaseCharacter::ServerThrowBall_Validate(FVector CameraFowardVector, bool bJustDropBall)
 {
 	return true;
 }
@@ -848,12 +856,12 @@ bool AxBaseCharacter::ServerSetPLayerIsPunching_Validate(bool bPlayerIsPunching)
 	return true;
 }
 
-void AxBaseCharacter::ServerSetPLayerIsGettingPunched_Implementation(bool bPlayerIsGettingPunched)
+void AxBaseCharacter::ServerSetPlayerIsTakingHit_Implementation(bool bPlayerIsTakingHit)
 {
-	bPlayerIsGettingPunched = bPlayerIsGettingPunched;
+	bIsTakingHit = bPlayerIsTakingHit;
 }
 
-bool AxBaseCharacter::ServerSetPLayerIsGettingPunched_Validate(bool bPlayerIsGettingPunched)
+bool AxBaseCharacter::ServerSetPlayerIsTakingHit_Validate(bool bPlayerIsTakingHit)
 {
 	return true;
 }
