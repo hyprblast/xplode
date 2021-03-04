@@ -24,10 +24,25 @@ public:
 		bool GetPlayerIsThrowing();
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerIsBlocking();
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerIsDead();
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SetPlayerIsThrowing(bool bPlayerIsThrowing);
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SetPlayerIsPunching(bool bPlayerIsPunching);
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 SetPlayerIsLeftHit(bool bPlayerIsLeftHit);
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 SetPlayerIsRightHit(bool bPlayerIsRightHit);
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 SetPlayerIsGettingPunched(bool bPlayerIsGettingPunched);
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		float GetInputAxisYawValue();

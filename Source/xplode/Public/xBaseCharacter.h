@@ -65,13 +65,25 @@ public:
 		bool bIsPunching;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
+		bool bIsLeftPunch;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
+		bool bIsRightPunch;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
+		bool bIsTakingHit;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
+		bool bIsLeftHit;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
+		bool bIsRightHit;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
 		bool bIsBlocking;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
-		bool bwasPunchedLeft;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
-		bool bwasPunchedRight;
+		bool bIsDead;
 
 	UPROPERTY()
 		UAudioComponent* ThrowPowerAudioComponent;
@@ -81,6 +93,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
 		USoundCue* ThrowPowerIncreaseSoundFx;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
+		USoundCue* DieSoundFx;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
 		USoundCue* WarningSoundFx;
@@ -97,8 +112,16 @@ public:
 	virtual FName GetPlayerType_Implementation() override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerIsBlocking();
+	virtual bool GetPlayerIsBlocking_Implementation() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerHasBall();
 	virtual bool GetPlayerHasBall_Implementation() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerIsDead();
+	virtual bool GetPlayerIsDead_Implementation() override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SetPlayerIsThrowing(bool bPlayerIsThrowing);
@@ -107,6 +130,18 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SetPlayerIsPunching(bool bPlayerIsThrowing);
 	virtual int32 SetPlayerIsPunching_Implementation(bool bPlayerIsThrowing) override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 SetPlayerIsLeftHit(bool bPlayerIsLeftHit);
+	virtual int32 SetPlayerIsLeftHit_Implementation(bool bPlayerIsLeftHit) override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 SetPlayerIsRightHit(bool bPlayerIsThrowing);
+	virtual int32 SetPlayerIsRightHit_Implementation(bool bPlayerIsRightHit) override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 SetPlayerIsGettingPunched(bool bPlayerIsGettingPunched);
+	virtual int32 SetPlayerIsGettingPunched_Implementation(bool bPlayerIsGettingPunched) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 ThrowBall();
@@ -141,7 +176,10 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerSetPLayerIsPunching(bool bPlayerIsPunching);
 
-	UFUNCTION(NetMulticast, Reliable)
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerSetPLayerIsGettingPunched(bool bPlayerIsGettingPunched);
+
+	UFUNCTION(NetMulticast, Unreliable)
 		void MulticastPlayTPVThrowAnimation();
 
 	UFUNCTION(Server, Reliable, WithValidation)
@@ -161,6 +199,12 @@ public:
 
 	UFUNCTION(NetMulticast, Unreliable)
 		void MulticastPlayTPVPunchRightAnimation();
+
+	UFUNCTION(NetMulticast, Unreliable)
+		void MulticastPlayTPVGettingPunchedLeftAnimation();
+
+	UFUNCTION(NetMulticast, Unreliable)
+		void MulticastPlayTPVGettingPunchedRightAnimation();
 
 	UFUNCTION()
 		void IncreaseThrowPower();
@@ -183,6 +227,9 @@ public:
 
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastKilledByExplosion();
+
+	UFUNCTION(NetMulticast, Reliable)
+		void MulticastKilled();
 
 	UFUNCTION(Client, Reliable)
 		void ClientActivateTopDownViewCam();
@@ -255,8 +302,6 @@ protected:
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastSetFirstPersonViewSettings();
 
-
-
 	UFUNCTION(Client, Reliable)
 		void ClientActivateFirstPersonViewCam();
 
@@ -287,6 +332,12 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Animation")
 		UAnimMontage* PunchRightMontage;
 
+	UPROPERTY(EditAnywhere, Category = "Animation")
+		UAnimMontage* GettingPunchedLeftMontage;
+
+	UPROPERTY(EditAnywhere, Category = "Animation")
+		UAnimMontage* GettingPunchedRightMontage;
+
 private:
 	UPROPERTY()
 		AxGameCamera* TopDownCam;
@@ -311,5 +362,8 @@ private:
 
 	UFUNCTION()
 		void DestroyBalls();
+
+	UFUNCTION()
+		void Die();
 
 };

@@ -25,6 +25,10 @@
 #include "Engine/Blueprint.h"
 #include "xplodeGameStateBase.h"
 #include <Sound/SoundCue.h>
+#include "PunchDamageType.h"
+#include "UObject/UObjectGlobals.h"
+#include "xBaseDamageTypeInterface.h"
+
 
 
 // Sets default values
@@ -111,12 +115,30 @@ void AxBaseCharacter::CallOnOverlap(class UPrimitiveComponent* OverlappedCompone
 {
 
 	if (IsValid(OtherActor)
-		&& OtherActor->ActorHasTag("Player") 
+		&& OtherActor->ActorHasTag("Player")
 		&& OtherActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass())
 		&& IxBaseCharacterInterface::Execute_GetPlayerType(OtherActor) != PlayerTypeName
 		&& bIsPunching)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("PUNCH"));
+		UPunchDamageType* PunchDamageType = NewObject<UPunchDamageType>();
+
+		if (!IxBaseCharacterInterface::Execute_GetPlayerIsBlocking(OtherActor))
+		{
+			if (bIsLeftPunch)
+			{
+				IxBaseCharacterInterface::Execute_SetPlayerIsLeftHit(OtherActor, true);
+				IxBaseCharacterInterface::Execute_SetPlayerIsRightHit(OtherActor, false);
+			}
+			else
+			{
+				IxBaseCharacterInterface::Execute_SetPlayerIsRightHit(OtherActor, true);
+				IxBaseCharacterInterface::Execute_SetPlayerIsLeftHit(OtherActor, false);
+			}
+
+			GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("PUNCH"));
+			UGameplayStatics::ApplyPointDamage(OtherActor, PunchDamageType->Damage, CameraComp->GetForwardVector(), SweepResult, GetOwner()->GetInstigatorController(), this, PunchDamageType->StaticClass());
+
+		}
 	}
 }
 
@@ -130,12 +152,22 @@ FName AxBaseCharacter::GetPlayerType_Implementation()
 	return PlayerTypeName;
 }
 
+bool AxBaseCharacter::GetPlayerIsBlocking_Implementation()
+{
+	return bIsBlocking;
+}
+
 bool AxBaseCharacter::GetPlayerHasBall_Implementation()
 {
 	return bHasBall;
 }
 
 
+
+bool AxBaseCharacter::GetPlayerIsDead_Implementation()
+{
+	return bIsDead;
+}
 
 int32 AxBaseCharacter::SetPlayerIsThrowing_Implementation(bool bPlayerIsThrowing)
 {
@@ -144,9 +176,27 @@ int32 AxBaseCharacter::SetPlayerIsThrowing_Implementation(bool bPlayerIsThrowing
 }
 
 
+int32 AxBaseCharacter::SetPlayerIsLeftHit_Implementation(bool bPlayerIsLeftHit)
+{
+	bIsLeftHit = bPlayerIsLeftHit;
+	return 1;
+}
+
 int32 AxBaseCharacter::SetPlayerIsPunching_Implementation(bool bPlayerIsThrowing)
 {
 	ServerSetPLayerIsPunching(bPlayerIsThrowing);
+	return 1;
+}
+
+int32 AxBaseCharacter::SetPlayerIsRightHit_Implementation(bool bPlayerIsRightHit)
+{
+	bIsRightHit = bPlayerIsRightHit;
+	return 1;
+}
+
+int32 AxBaseCharacter::SetPlayerIsGettingPunched_Implementation(bool bPlayerIsGettingPunched)
+{
+	ServerSetPLayerIsGettingPunched(bPlayerIsGettingPunched);
 	return 1;
 }
 
@@ -243,6 +293,54 @@ void AxBaseCharacter::BeginPlay()
 void AxBaseCharacter::HandleTakeAnyDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser)
 {
 
+	if (!bIsDead && IsValid(DamageType) && DamageType->GetClass()->ImplementsInterface(UxBaseDamageTypeInterface::StaticClass()))
+	{
+		bIsTakingHit = true;
+
+		FName DamageTypeName = IxBaseDamageTypeInterface::Execute_GetDamageTypeName(DamageType);
+
+		if (DamageTypeName == FName("Punch"))
+		{
+			if (bIsRightHit)
+			{
+				if (IsValid(GettingPunchedRightMontage))
+				{
+					MulticastPlayTPVGettingPunchedRightAnimation();
+
+				}
+			}
+			else
+			{
+				if (IsValid(GettingPunchedLeftMontage))
+				{
+					MulticastPlayTPVGettingPunchedLeftAnimation();
+				}
+			}
+			if (bHasBall)
+			{
+				if (bIsRightHit)
+				{
+					ServerThrowBall(CameraComp->GetRightVector());
+				}
+				else
+				{
+					ServerThrowBall(-CameraComp->GetRightVector());
+				}
+				
+			}
+
+		}
+
+		Health -= Damage;
+
+		if (Health <= 0 && !bIsDead)
+		{
+			bIsDead = true;
+			MulticastKilled();
+		}
+	}
+
+	GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, FString::SanitizeFloat(Health));
 }
 
 // Called every frame
@@ -317,7 +415,7 @@ void AxBaseCharacter::AttachBallToTPVMesh()
 	FTransform TPVSocketTransform = TPVSkeletalMesh->GetSocketTransform(SocketName, RTS_World);
 
 	TPVBall->AttachToComponent(TPVSkeletalMesh, TransformRules, SocketName);
-	/*TPVBall->StartTimer();*/
+	TPVBall->StartTimer();
 
 }
 
@@ -343,8 +441,11 @@ void AxBaseCharacter::LoadDynamicRefs()
 	PickupBallMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/PickUpAnimMontage.PickUpAnimMontage'")));
 	PunchLeftMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/PunchLeftAnimMontage.PunchLeftAnimMontage'")));
 	PunchRightMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/PunchRightAnimMontage.PunchRightAnimMontage'")));
+	GettingPunchedLeftMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/GettingPunchedLeftAnimMontage.GettingPunchedLeftAnimMontage'")));
+	GettingPunchedRightMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/GettingPunchedRightAnimMontage.GettingPunchedRightAnimMontage'")));
 	ThrowPowerIncreaseSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/SciFiWeaponsCyberpunkArsenal/cues/Support_Material/Charge/SCIMisc_Charge_Weapon_15_Cue.SCIMisc_Charge_Weapon_15_Cue'")));
 	WarningSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/SciFiWeaponsCyberpunkArsenal/cues/Support_Material/Targeting/BEEP_Targeting_Loop_04_Cue.BEEP_Targeting_Loop_04_Cue'")));
+	DieSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/ParagonTwinblast/Characters/Heroes/TwinBlast/Sounds/SoundWaves/Death.Death'")));
 }
 
 void AxBaseCharacter::OnBallWarn()
@@ -414,13 +515,13 @@ void AxBaseCharacter::PlayPunchLeftAnim()
 {
 	if (!bIsPunching)
 	{
-		SkeletalMeshComp->GetAnimInstance()->Montage_Play(PunchLeftMontage);
+		GetMesh()->GetAnimInstance()->Montage_Play(PunchLeftMontage);
 		ServerPlayTPVPunchLeftAnim();
 	}
-	
+
 	/*if (!SkeletalMeshComp->GetAnimInstance()->Montage_IsPlaying(PunchLeftMontage))
 	{
-		
+
 	}*/
 
 }
@@ -431,13 +532,13 @@ void AxBaseCharacter::PlayPunchRightAnim()
 	if (!bIsPunching)
 	{
 		//TODO: Maybe if has ball needs other animation ???
-		SkeletalMeshComp->GetAnimInstance()->Montage_Play(PunchRightMontage);
+		GetMesh()->GetAnimInstance()->Montage_Play(PunchRightMontage);
 		ServerPlayTPVPunchRightAnim();
 	}
-	
+
 	/*if (!SkeletalMeshComp->GetAnimInstance()->Montage_IsPlaying(PunchRightMontage))
 	{
-		
+
 	}*/
 
 }
@@ -533,17 +634,30 @@ void AxBaseCharacter::MulticastKilledByExplosion_Implementation()
 		TPVMesh->WakeAllRigidBodies();
 		TPVMesh->bBlendPhysics = true;
 
-		UCharacterMovementComponent* MovementComponent = GetCharacterMovement();
-
-		MovementComponent->StopMovementImmediately();
-		MovementComponent->DisableMovement();
-		MovementComponent->SetComponentTickEnabled(false);
-
-		SetLifeSpan(10.0f);
+		
+		Die();
+		
+		
 
 		/*TPVMesh->AddRadialForce(GetActorUpVector(), 50.f, 15000.f, ERadialImpulseFalloff::RIF_MAX);*/
 	}
 }
+
+void AxBaseCharacter::MulticastKilled_Implementation()
+{
+	UGameplayStatics::SpawnSoundAtLocation(GetWorld(), DieSoundFx, GetActorLocation());
+	Die();
+}
+
+void AxBaseCharacter::Die()
+{
+	SetLifeSpan(10.0f);
+	UCharacterMovementComponent* MovementComponent = GetCharacterMovement();
+	MovementComponent->StopMovementImmediately();
+	MovementComponent->DisableMovement();
+	MovementComponent->SetComponentTickEnabled(false);
+}
+
 
 void AxBaseCharacter::ClientActivateTopDownViewCam_Implementation()
 {
@@ -627,6 +741,7 @@ bool AxBaseCharacter::ServerPlayTPVThrowBallAnim_Validate()
 void AxBaseCharacter::ServerPlayTPVPunchLeftAnim_Implementation()
 {
 	bIsPunching = true;
+	bIsLeftPunch = true;
 	MulticastPlayTPVPunchLeftAnimation();
 }
 
@@ -638,6 +753,7 @@ bool AxBaseCharacter::ServerPlayTPVPunchLeftAnim_Validate()
 void AxBaseCharacter::ServerPlayTPVPunchRightAnim_Implementation()
 {
 	bIsPunching = true;
+	bIsRightPunch = true;
 	MulticastPlayTPVPunchRightAnimation();
 }
 
@@ -645,6 +761,7 @@ bool AxBaseCharacter::ServerPlayTPVPunchRightAnim_Validate()
 {
 	return true;
 }
+
 
 void AxBaseCharacter::MulticastPlayTPVPickupAnimation_Implementation()
 {
@@ -678,6 +795,22 @@ void AxBaseCharacter::MulticastPlayTPVPunchRightAnimation_Implementation()
 	}
 }
 
+void AxBaseCharacter::MulticastPlayTPVGettingPunchedLeftAnimation_Implementation()
+{
+	if (IsValid(GettingPunchedLeftMontage))
+	{
+		GetMesh()->GetAnimInstance()->Montage_Play(GettingPunchedLeftMontage);
+	}
+}
+
+void AxBaseCharacter::MulticastPlayTPVGettingPunchedRightAnimation_Implementation()
+{
+	if (IsValid(GettingPunchedRightMontage))
+	{
+		GetMesh()->GetAnimInstance()->Montage_Play(GettingPunchedRightMontage);
+	}
+}
+
 void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraFowardVector)
 {
 	TPVBall->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
@@ -706,9 +839,21 @@ bool AxBaseCharacter::ServerSetPLayerIsThrowing_Validate(bool bPlayerIsThrowing)
 void AxBaseCharacter::ServerSetPLayerIsPunching_Implementation(bool bPlayerIsPunching)
 {
 	bIsPunching = bPlayerIsPunching;
+	bIsRightPunch = bPlayerIsPunching;
+	bIsLeftPunch = bPlayerIsPunching;
 }
 
 bool AxBaseCharacter::ServerSetPLayerIsPunching_Validate(bool bPlayerIsPunching)
+{
+	return true;
+}
+
+void AxBaseCharacter::ServerSetPLayerIsGettingPunched_Implementation(bool bPlayerIsGettingPunched)
+{
+	bPlayerIsGettingPunched = bPlayerIsGettingPunched;
+}
+
+bool AxBaseCharacter::ServerSetPLayerIsGettingPunched_Validate(bool bPlayerIsGettingPunched)
 {
 	return true;
 }
@@ -803,9 +948,13 @@ void AxBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(AxBaseCharacter, PlayerTypeName);
 	DOREPLIFETIME(AxBaseCharacter, bIsPunching);
 	DOREPLIFETIME(AxBaseCharacter, bIsBlocking);
-	DOREPLIFETIME(AxBaseCharacter, bwasPunchedLeft);
-	DOREPLIFETIME(AxBaseCharacter, bwasPunchedRight);
-	
+	DOREPLIFETIME(AxBaseCharacter, bIsRightPunch);
+	DOREPLIFETIME(AxBaseCharacter, bIsLeftPunch);
+	DOREPLIFETIME(AxBaseCharacter, bIsTakingHit);
+	DOREPLIFETIME(AxBaseCharacter, bIsLeftHit);
+	DOREPLIFETIME(AxBaseCharacter, bIsRightHit);
+	DOREPLIFETIME(AxBaseCharacter, bIsDead);
+
 
 }
 

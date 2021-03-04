@@ -57,7 +57,7 @@ AxBallBase::AxBallBase()
 
 void AxBallBase::CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, class AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (HasAuthority() && IsValid(OtherActor))
+	if (HasAuthority() && IsValid(OtherActor) && !bScored)
 	{
 		if (OtherActor->ActorHasTag(FName("Player")) &&
 			OtherActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()) &&
@@ -67,7 +67,7 @@ void AxBallBase::CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, c
 			IxBaseCharacterInterface::Execute_PickupBall(OtherActor, this);
 			//Destroy();
 		}
-		else if (OtherActor->ActorHasTag("Goal") && !bScored)
+		else if (OtherActor->ActorHasTag("Goal"))
 		{
 			bScored = true;
 			MulticastPlayScoreSFX();
@@ -160,8 +160,7 @@ void AxBallBase::PlayWarn()
 void AxBallBase::OnCompHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 
-
-	if (IsValid(OtherActor) && (OtherActor->ActorHasTag("Goal") || OtherActor->ActorHasTag("Wall")))
+	if (IsValid(OtherActor) && !bScored && (OtherActor->ActorHasTag("Goal") || OtherActor->ActorHasTag("Wall")))
 	{
 
 		EPhysicalSurface SurfaceType = UPhysicalMaterial::DetermineSurfaceType(Hit.PhysMaterial.Get());
