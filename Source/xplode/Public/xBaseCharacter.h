@@ -15,6 +15,7 @@
 #include "xGameCamera.h"
 #include "Components/SphereComponent.h"
 #include "Components/PrimitiveComponent.h"
+#include "Perception/AIPerceptionComponent.h"
 #include "xBaseCharacter.generated.h"
 
 class UCameraComponent;
@@ -55,34 +56,43 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 		USphereComponent* RightHandCollisionComp;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+		USphereComponent* RightFootCollisionComp;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+		UAIPerceptionComponent* AIPerceptionComp;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bHasBall;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsThrowing;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsPunching;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
+		bool bIsKicking;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsLeftPunch;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsRightPunch;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsTakingHit;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsLeftHit;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsRightHit;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsBlocking;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", Replicated)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsDead;
 
 	UPROPERTY()
@@ -128,8 +138,12 @@ public:
 	virtual int32 SetPlayerIsThrowing_Implementation(bool bPlayerIsThrowing) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 SetPlayerIsPunching(bool bPlayerIsThrowing);
-	virtual int32 SetPlayerIsPunching_Implementation(bool bPlayerIsThrowing) override;
+		int32 SetPlayerIsPunching(bool bPlayerIsPunching);
+	virtual int32 SetPlayerIsPunching_Implementation(bool bPlayerIsPunching) override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 SetPlayerIsKicking(bool bPlayerIsKicking);
+	virtual int32 SetPlayerIsKicking_Implementation(bool bPlayerIsKicking) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SetPlayerIsLeftHit(bool bPlayerIsLeftHit);
@@ -140,8 +154,8 @@ public:
 	virtual int32 SetPlayerIsRightHit_Implementation(bool bPlayerIsRightHit) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 PushPlayer(FVector Force);
-	virtual int32 PushPlayer_Implementation(FVector Force) override;
+		int32 PushPlayer(FVector Force, bool bXOverride, bool bZOverride);
+	virtual int32 PushPlayer_Implementation(FVector Force, bool bXOverride, bool bZOverride) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SetPlayerIsGettingHit(bool bPlayerIsGettingHit);
@@ -181,6 +195,9 @@ public:
 		void ServerSetPLayerIsPunching(bool bPlayerIsPunching);
 
 	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerSetPLayerIsKicking(bool bPlayerIsKicking);
+
+	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerSetPlayerIsTakingHit(bool bPlayerIsTakingHit);
 
 	UFUNCTION(NetMulticast, Unreliable)
@@ -197,6 +214,12 @@ public:
 
 	UFUNCTION(NetMulticast, Unreliable)
 		void MulticastPlayTPVPickupAnimation();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerPlayTPVKickAnim();
+
+	UFUNCTION(NetMulticast, Unreliable)
+		void MulticastPlayTPVKickAnimation();
 
 	UFUNCTION(NetMulticast, Unreliable)
 		void MulticastPlayTPVPunchLeftAnimation();
@@ -215,6 +238,9 @@ public:
 
 	UFUNCTION()
 		void PlayPunchLeftAnim();
+
+	UFUNCTION()
+		void PlayKickAnim();
 
 	UFUNCTION()
 		void PlayPunchRightAnim();
@@ -332,6 +358,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Animation")
 		UAnimMontage* PunchLeftMontage;
+
+	UPROPERTY(EditAnywhere, Category = "Animation")
+		UAnimMontage* KickMontage;
 
 	UPROPERTY(EditAnywhere, Category = "Animation")
 		UAnimMontage* PunchRightMontage;

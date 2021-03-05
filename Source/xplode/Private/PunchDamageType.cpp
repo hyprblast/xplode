@@ -6,7 +6,7 @@
 UPunchDamageType::UPunchDamageType()
 {
 	bCausedByWorld = false;
-	DamageImpulse = 100.f;
+	DamageImpulse = 500.f;
 	Damage = 5.f;
 	DamageTypeName = TEXT("Punch");
 }

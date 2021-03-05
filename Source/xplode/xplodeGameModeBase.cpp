@@ -51,9 +51,9 @@ void AxplodeGameModeBase::RequestSpawnPlayerType(FName TypeName, APlayerControll
 		{
 			IxPlayerControllerInterface::Execute_SpawnPlayer(PlayerController, PlayerUIClasses[PlayerUIClassIndex], Transform, TypeName);
 
-			// Temporary: Spawn 1 bot from the opposite team
+			// Temporary: Spawn 2 bot from the opposite team
 			int32 BotUIClassIndex = TypeName == TEXT("Blue") ? 3 : 2;
-			Transform = TypeName == TEXT("Blue") ?  RedSpawnPoints[Rand]->GetTransform() : BlueSpanwPoints[Rand]->GetTransform();
+			Transform = TypeName == TEXT("Blue") ?  RedSpawnPoints[0]->GetTransform() : BlueSpanwPoints[0]->GetTransform();
 
 
 			FActorSpawnParameters spawnParams;
@@ -63,6 +63,13 @@ void AxplodeGameModeBase::RequestSpawnPlayerType(FName TypeName, APlayerControll
 			AxBaseCharacter* SpawnedPlayer = GetWorld()->SpawnActor<AxBaseCharacter>(PlayerUIClasses[BotUIClassIndex], Transform, spawnParams);
 
 			SpawnedPlayer->PlayerTypeName = TypeName == TEXT("Blue") ? TEXT("Red") : TEXT("Blue");
+
+			Transform = TypeName == TEXT("Blue") ? RedSpawnPoints[1]->GetTransform() : BlueSpanwPoints[1]->GetTransform();
+
+			AxBaseCharacter* SpawnedPlayer2 = GetWorld()->SpawnActor<AxBaseCharacter>(PlayerUIClasses[BotUIClassIndex], Transform, spawnParams);
+
+			SpawnedPlayer2->PlayerTypeName = TypeName == TEXT("Blue") ? TEXT("Red") : TEXT("Blue");
+
 			
 		}
 	}
