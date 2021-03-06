@@ -165,7 +165,7 @@ void AxBaseCharacter::CallOnOverlap(class UPrimitiveComponent* OverlappedCompone
 					IxBaseCharacterInterface::Execute_SetPlayerIsLeftHit(OtherActor, false);
 				}
 
-				IxBaseCharacterInterface::Execute_PushPlayer(OtherActor, FVector(GetActorForwardVector().X, GetActorForwardVector().Y, 100.f), false, false);
+				IxBaseCharacterInterface::Execute_PushPlayer(OtherActor, FVector(GetActorForwardVector().X * PunchDamageType->DamageImpulse, GetActorForwardVector().Y * PunchDamageType->DamageImpulse, 100.f), true, true);
 
 				UGameplayStatics::ApplyPointDamage(OtherActor, PunchDamageType->Damage, CameraComp->GetForwardVector(), SweepResult, GetOwner()->GetInstigatorController(), this, PunchDamageType->StaticClass());
 
