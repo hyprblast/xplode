@@ -6,18 +6,17 @@
 #include "Animation/AnimNotifies/AnimNotify.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Animation/AnimSequenceBase.h"
-#include "EndKickAnimNotify.generated.h"
+#include "EndBlockAnimNotify.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class XPLODE_API UEndKickAnimNotify : public UAnimNotify
+class XPLODE_API UEndBlockAnimNotify : public UAnimNotify
 {
 	GENERATED_BODY()
 
 public:
 	virtual void Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation) override;
-
 	
 };

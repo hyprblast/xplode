@@ -16,6 +16,7 @@
 #include "Components/SphereComponent.h"
 #include "Components/PrimitiveComponent.h"
 #include "Perception/AIPerceptionComponent.h"
+#include "Particles/ParticleSystem.h"
 #include "xBaseCharacter.generated.h"
 
 class UCameraComponent;
@@ -69,31 +70,19 @@ public:
 		bool bIsThrowing;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
-		bool bIsPunching;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
-		bool bIsKicking;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
-		bool bIsLeftPunch;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
-		bool bIsRightPunch;
+		bool bIsFighting;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsTakingHit;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
-		bool bIsLeftHit;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
-		bool bIsRightHit;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsBlocking;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsDead;
+
+	/*UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FX")
+		UParticleSystem* FightTrailParticle;*/
 
 	UPROPERTY()
 		UAudioComponent* ThrowPowerAudioComponent;
@@ -109,6 +98,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
 		USoundCue* WarningSoundFx;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
+		USoundCue* BlockSoundFx;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Replicated)
 		FName PlayerTypeName;
@@ -138,20 +130,12 @@ public:
 	virtual int32 SetPlayerIsThrowing_Implementation(bool bPlayerIsThrowing) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 SetPlayerIsPunching(bool bPlayerIsPunching);
-	virtual int32 SetPlayerIsPunching_Implementation(bool bPlayerIsPunching) override;
+		int32 SetPlayerIsBLocking(bool bPlayerIsBlocking);
+	virtual int32 SetPlayerIsBLocking_Implementation(bool bPlayerIsBlocking) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 SetPlayerIsKicking(bool bPlayerIsKicking);
-	virtual int32 SetPlayerIsKicking_Implementation(bool bPlayerIsKicking) override;
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 SetPlayerIsLeftHit(bool bPlayerIsLeftHit);
-	virtual int32 SetPlayerIsLeftHit_Implementation(bool bPlayerIsLeftHit) override;
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 SetPlayerIsRightHit(bool bPlayerIsThrowing);
-	virtual int32 SetPlayerIsRightHit_Implementation(bool bPlayerIsRightHit) override;
+		int32 SetPlayerIsFighting(bool bPlayerIsFighting);
+	virtual int32 SetPlayerIsFighting_Implementation(bool bPlayerIsFighting) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 PushPlayer(FVector Force, bool bXOverride, bool bZOverride);
@@ -192,10 +176,10 @@ public:
 		void ServerSetPLayerIsThrowing(bool bPlayerIsThrowing);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-		void ServerSetPLayerIsPunching(bool bPlayerIsPunching);
+		void ServerSetPLayerIsFighting(bool bPlayerIsFighting);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-		void ServerSetPLayerIsKicking(bool bPlayerIsKicking);
+		void ServerSetPLayerIsBlocking(bool bPlayerIsBlocking);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerSetPlayerIsTakingHit(bool bPlayerIsTakingHit);
@@ -203,47 +187,41 @@ public:
 	UFUNCTION(NetMulticast, Unreliable)
 		void MulticastPlayTPVThrowAnimation();
 
+	UFUNCTION(NetMulticast, Unreliable)
+		void MulticastPlayBlockSound();
+
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerPlayTPVThrowBallAnim();
 
 	UFUNCTION(Server, Reliable, WithValidation)
-		void ServerPlayTPVPunchLeftAnim();
-
-	UFUNCTION(Server, Reliable, WithValidation)
-		void ServerPlayTPVPunchRightAnim();
+		void ServerFight(bool bIsKick);
 
 	UFUNCTION(NetMulticast, Unreliable)
 		void MulticastPlayTPVPickupAnimation();
 
 	UFUNCTION(Server, Reliable, WithValidation)
-		void ServerPlayTPVKickAnim();
+		void ServerPlayTPVBlockAnim();
 
 	UFUNCTION(NetMulticast, Unreliable)
-		void MulticastPlayTPVKickAnimation();
+		void MulticastPlayTPVBlockAnimation();
 
 	UFUNCTION(NetMulticast, Unreliable)
-		void MulticastPlayTPVPunchLeftAnimation();
+		void MulticastFight(bool bIsKick);
 
 	UFUNCTION(NetMulticast, Unreliable)
-		void MulticastPlayTPVPunchRightAnimation();
-
-	UFUNCTION(NetMulticast, Unreliable)
-		void MulticastPlayTPVGettingPunchedLeftAnimation();
-
-	UFUNCTION(NetMulticast, Unreliable)
-		void MulticastPlayTPVGettingPunchedRightAnimation();
+		void MulticastPlayTPVGettingPunchedAnimation();
 
 	UFUNCTION()
 		void IncreaseThrowPower();
 
 	UFUNCTION()
-		void PlayPunchLeftAnim();
+		void Fight();
 
 	UFUNCTION()
-		void PlayKickAnim();
+		void Kick();
 
 	UFUNCTION()
-		void PlayPunchRightAnim();
+		void PlayBlockAnim();
 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
@@ -332,6 +310,9 @@ protected:
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastSetFirstPersonViewSettings();
 
+	UFUNCTION(NetMulticast, Reliable)
+		void MulticastSetActorRotation(FRotator TargetRotation);
+
 	UFUNCTION(Client, Reliable)
 		void ClientActivateFirstPersonViewCam();
 
@@ -348,6 +329,15 @@ protected:
 		AxBallBase* TPVBall;
 
 	UPROPERTY(EditAnywhere, Category = "Animation")
+		TArray<UAnimMontage*> FightAnimMontages;
+
+	UPROPERTY(EditAnywhere, Category = "Animation")
+		TArray<UAnimMontage*> FightKickAnimMontages;
+
+	UPROPERTY(EditAnywhere, Category = "Animation")
+		TArray<UAnimMontage*> GettingPunchedMontages;
+
+	UPROPERTY(EditAnywhere, Category = "Animation")
 		UAnimMontage* ThrowBallMontage;
 
 	UPROPERTY(EditAnywhere, Category = "Animation")
@@ -357,19 +347,9 @@ protected:
 		UAnimMontage* PickupBallMontage;
 
 	UPROPERTY(EditAnywhere, Category = "Animation")
-		UAnimMontage* PunchLeftMontage;
+		UAnimMontage* BlockMontage;
 
-	UPROPERTY(EditAnywhere, Category = "Animation")
-		UAnimMontage* KickMontage;
 
-	UPROPERTY(EditAnywhere, Category = "Animation")
-		UAnimMontage* PunchRightMontage;
-
-	UPROPERTY(EditAnywhere, Category = "Animation")
-		UAnimMontage* GettingPunchedLeftMontage;
-
-	UPROPERTY(EditAnywhere, Category = "Animation")
-		UAnimMontage* GettingPunchedRightMontage;
 
 private:
 	UPROPERTY()

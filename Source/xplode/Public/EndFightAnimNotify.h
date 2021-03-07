@@ -6,13 +6,13 @@
 #include "Animation/AnimNotifies/AnimNotify.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Animation/AnimSequenceBase.h"
-#include "EndPunchAnimNotify.generated.h"
+#include "EndFightAnimNotify.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class XPLODE_API UEndPunchAnimNotify : public UAnimNotify
+class XPLODE_API UEndFightAnimNotify : public UAnimNotify
 {
 	GENERATED_BODY()
 public:

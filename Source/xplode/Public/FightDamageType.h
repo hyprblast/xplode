@@ -4,17 +4,17 @@
 
 #include "CoreMinimal.h"
 #include "xDamageTypeBase.h"
-#include "KickDamageType.generated.h"
+#include "FightDamageType.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class XPLODE_API UKickDamageType : public UxDamageTypeBase
+class XPLODE_API UFightDamageType : public UxDamageTypeBase
 {
 	GENERATED_BODY()
 
-public:
-	UKickDamageType();
+	public:
+		UFightDamageType();
 	
 };

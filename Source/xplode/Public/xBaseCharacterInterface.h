@@ -33,16 +33,10 @@ public:
 		int32 SetPlayerIsThrowing(bool bPlayerIsThrowing);
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 SetPlayerIsPunching(bool bPlayerIsPunching);
+		int32 SetPlayerIsBLocking(bool bPlayerIsBlocking);
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 SetPlayerIsKicking(bool bPlayerIsKicking);
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 SetPlayerIsLeftHit(bool bPlayerIsLeftHit);
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 SetPlayerIsRightHit(bool bPlayerIsRightHit);
+		int32 SetPlayerIsFighting(bool bPlayerIsFighting);
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SetPlayerIsGettingHit(bool bPlayerIsGettingHit);
