@@ -17,6 +17,7 @@
 #include "Components/PrimitiveComponent.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Particles/ParticleSystem.h"
+#include "BehaviorTree/BehaviorTree.h"
 #include "xBaseCharacter.generated.h"
 
 class UCameraComponent;
@@ -76,10 +77,16 @@ public:
 		bool bIsTakingHit;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
+		bool bShouldSlide;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsBlocking;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsDead;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FX")
+	UParticleSystem* BloodParticles;
 
 	/*UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FX")
 		UParticleSystem* FightTrailParticle;*/
@@ -189,6 +196,9 @@ public:
 
 	UFUNCTION(NetMulticast, Unreliable)
 		void MulticastPlayBlockSound();
+
+	UFUNCTION(NetMulticast, Unreliable)
+		void MulticastBloodCloud(FVector ImpactPoint, FRotator Rotation);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerPlayTPVThrowBallAnim();
@@ -351,6 +361,8 @@ protected:
 
 
 
+
+
 private:
 	UPROPERTY()
 		AxGameCamera* TopDownCam;
@@ -360,6 +372,15 @@ private:
 
 	UPROPERTY()
 		FTimerHandle HasBallTimerHandle;
+
+	UPROPERTY()
+		uint8 FightMoveIndex;
+
+	UPROPERTY()
+		float PushPlayerFactor;
+
+	UPROPERTY()
+	UBehaviorTree* BehaviourTree;
 
 	UFUNCTION()
 		void FindTopDownCamera();
@@ -379,4 +400,9 @@ private:
 	UFUNCTION()
 		void Die();
 
+	UFUNCTION()
+		void FightLogic();
+
+	UFUNCTION()
+		void KickLogic();
 };

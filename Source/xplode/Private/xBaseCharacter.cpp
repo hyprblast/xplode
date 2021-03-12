@@ -29,6 +29,8 @@
 #include "xBaseDamageTypeInterface.h"
 #include "Perception/AISenseConfig_Sight.h"
 #include "FightDamageType.h"
+#include "Blueprint/AIBlueprintHelperLibrary.h"
+#include "AIController.h"
 
 
 
@@ -47,10 +49,12 @@ AxBaseCharacter::AxBaseCharacter()
 	/*CapsuleComp->SetGenerateOverlapEvents(false);*/
 
 	USkeletalMeshComponent* TPVMesh = GetMesh();
+	TPVMesh->bReturnMaterialOnMove = true;
 
-	/*TPVMesh->SetCollisionObjectType(XBALLNOCOLLISIONOBJECT_CHANNEL);
-	TPVMesh->SetCollisionProfileName(TEXT("xBalllMeshNoCollision"));*/
+	TPVMesh->SetCollisionObjectType(XSKEKETALMESHOBJECT_CHANNEL);
+	TPVMesh->SetCollisionProfileName(TEXT("xSkeletalMeshCollision"));
 	TPVMesh->CanCharacterStepUp(false);
+	TPVMesh->SetGenerateOverlapEvents(true);
 
 	CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	CameraComp->SetWorldLocation(FVector(0, 0, 70.0f));
@@ -63,7 +67,9 @@ AxBaseCharacter::AxBaseCharacter()
 
 	SkeletalMeshComp = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FPArms"));
 	SkeletalMeshComp->CanCharacterStepUp(false);
+	SkeletalMeshComp->bOnlyOwnerSee = true;
 	SkeletalMeshComp->SetupAttachment(CameraComp);
+
 
 
 	/*SkeletalMeshComp->SetCollisionObjectType(XBALLNOCOLLISIONOBJECT_CHANNEL);
@@ -75,7 +81,7 @@ AxBaseCharacter::AxBaseCharacter()
 	MovementComponent->SetIsReplicated(true);
 	MovementComponent->bUseControllerDesiredRotation = true;
 
-	FAttachmentTransformRules TransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::KeepWorld, true);
+	FAttachmentTransformRules TransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, true);
 
 	LeftHandCollisionComp = CreateDefaultSubobject<USphereComponent>(TEXT("LeftHandCollision"));
 	LeftHandCollisionComp->SetSphereRadius(17.f);
@@ -84,16 +90,17 @@ AxBaseCharacter::AxBaseCharacter()
 	LeftHandCollisionComp->SetCollisionProfileName(TEXT("xPunchCollision"));
 	LeftHandCollisionComp->CanCharacterStepUp(false);
 	LeftHandCollisionComp->AttachToComponent(GetMesh(), TransformRules, TEXT("hand_l"));
+	LeftHandCollisionComp->bReturnMaterialOnMove = true;
 
 
-	RightHandCollisionComp = CreateDefaultSubobject<USphereComponent>(TEXT("RighttHandCollision"));
+	RightHandCollisionComp = CreateDefaultSubobject<USphereComponent>(TEXT("RightHandCollision"));
 	RightHandCollisionComp->SetSphereRadius(17.f);
 	RightHandCollisionComp->SetGenerateOverlapEvents(true);
 	RightHandCollisionComp->SetCollisionObjectType(XPUNCHOBJECT_CHANNEL);
 	RightHandCollisionComp->SetCollisionProfileName(TEXT("xPunchCollision"));
 	RightHandCollisionComp->CanCharacterStepUp(false);
 	RightHandCollisionComp->AttachToComponent(GetMesh(), TransformRules, TEXT("hand_r"));
-
+	RightHandCollisionComp->bReturnMaterialOnMove = true;
 
 	RightFootCollisionComp = CreateDefaultSubobject<USphereComponent>(TEXT("RightFootCollision"));
 	RightFootCollisionComp->SetRelativeLocation(FVector(8.7f, -15.f, 1));
@@ -103,6 +110,7 @@ AxBaseCharacter::AxBaseCharacter()
 	RightFootCollisionComp->SetCollisionProfileName(TEXT("xPunchCollision"));
 	RightFootCollisionComp->CanCharacterStepUp(false);
 	RightFootCollisionComp->AttachToComponent(GetMesh(), TransformRules, TEXT("ik_foot_r"));
+	RightFootCollisionComp->bReturnMaterialOnMove = true;
 
 	AIPerceptionComp = CreateDefaultSubobject<UAIPerceptionComponent>(TEXT("AIPerception"));
 	UAISenseConfig_Sight* SightConfig = CreateDefaultSubobject<UAISenseConfig_Sight>(TEXT("Sight Config"));
@@ -131,6 +139,8 @@ AxBaseCharacter::AxBaseCharacter()
 	bReplicates = true;
 	SetReplicateMovement(true);
 
+	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
+
 
 	/*static ConstructorHelpers::FObjectFinder<UBlueprint> GameCameraBP(TEXT("Blueprint'/Game/_Main/Actors/Blueprints/BP_GameCamera.BP_GameCamera'"));
 	GameCamera = Cast<AxGameCamera>(GameCameraBP.Object);*/
@@ -144,27 +154,49 @@ void AxBaseCharacter::CallOnOverlap(class UPrimitiveComponent* OverlappedCompone
 		&& OtherActor->ActorHasTag("Player")
 		&& OtherActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass())
 		&& IxBaseCharacterInterface::Execute_GetPlayerType(OtherActor) != PlayerTypeName
-		&& !IxBaseCharacterInterface::Execute_GetPlayerIsDead(OtherActor))
+		&& !IxBaseCharacterInterface::Execute_GetPlayerIsDead(OtherActor) && bIsFighting)
 	{
-		FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), OtherActor->GetActorLocation());
-		
-		MulticastSetActorRotation(LookAtRotation);
 
 		if (IxBaseCharacterInterface::Execute_GetPlayerIsBlocking(OtherActor))
 		{
 			MulticastPlayBlockSound();
 			IxBaseCharacterInterface::Execute_PushPlayer(OtherActor, FVector(GetActorForwardVector().X * 100.f, GetActorForwardVector().Y * 100.f, 100.f), true, true);
+			return;
 		}
-		
-		else if (bIsFighting)
+
+
+
+	/*	EPhysicalSurface SurfaceType = UPhysicalMaterial::DetermineSurfaceType(SweepResult.PhysMaterial.Get());
+
+		switch (SurfaceType)
 		{
-			
-			UFightDamageType* FightDamageType = NewObject<UFightDamageType>();
+		case HEAD:
+		case TORSO:
+		case ARMS:
+		case LEGS:
+			GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("HEAD"));
+			A
+			break;
+		default:
+			GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("Default"));
+			break;
+		}*/
 
-			IxBaseCharacterInterface::Execute_PushPlayer(OtherActor, FVector(GetActorForwardVector().X * FightDamageType->DamageImpulse, GetActorForwardVector().Y * FightDamageType->DamageImpulse, 100.f), true, true);
+		//UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), BloodParticles, SweepResult.ImpactPoint, SweepResult.ImpactNormal.Rotation());
+		MulticastBloodCloud(OtherActor->GetActorLocation(), OtherActor->GetActorRotation());
 
-			UGameplayStatics::ApplyPointDamage(OtherActor, FightDamageType->Damage, CameraComp->GetForwardVector(), SweepResult, GetOwner()->GetInstigatorController(), this, FightDamageType->StaticClass());
+		if (!GetCharacterMovement()->IsFalling())
+		{
+			FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), OtherActor->GetActorLocation());
+			MulticastSetActorRotation(LookAtRotation);
 		}
+
+		UFightDamageType* FightDamageType = NewObject<UFightDamageType>();
+
+		IxBaseCharacterInterface::Execute_PushPlayer(OtherActor, FVector(GetActorForwardVector().X * FightDamageType->DamageImpulse, GetActorForwardVector().Y * FightDamageType->DamageImpulse, 100.f), true, true);
+
+		UGameplayStatics::ApplyPointDamage(OtherActor, FightDamageType->Damage, CameraComp->GetForwardVector(), SweepResult, GetOwner()->GetInstigatorController(), this, FightDamageType->StaticClass());
+		
 	}
 }
 
@@ -281,6 +313,17 @@ void AxBaseCharacter::BeginPlay()
 		OnTakeAnyDamage.AddDynamic(this, &AxBaseCharacter::HandleTakeAnyDamage);
 		LeftHandCollisionComp->OnComponentBeginOverlap.AddDynamic(this, &AxBaseCharacter::CallOnOverlap);
 		RightHandCollisionComp->OnComponentBeginOverlap.AddDynamic(this, &AxBaseCharacter::CallOnOverlap);
+		RightFootCollisionComp->OnComponentBeginOverlap.AddDynamic(this, &AxBaseCharacter::CallOnOverlap);
+
+		if (ActorHasTag("Bot"))
+		{
+			AAIController* AIController = UAIBlueprintHelperLibrary::GetAIController(this);
+
+			if (IsValid(AIController) && IsValid(BehaviourTree))
+			{
+				AIController->RunBehaviorTree(BehaviourTree);
+			}
+		}
 	}
 
 	MulticastSetTopDownViewSettings();
@@ -456,43 +499,47 @@ void AxBaseCharacter::LoadDynamicRefs()
 	ThrowBallMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/ThrowBallAnimMontage.ThrowBallAnimMontage'")));
 	ThrowBallMontageTPV = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/ThrowBallAnimMontageTPV.ThrowBallAnimMontageTPV'")));
 	PickupBallMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/PickUpAnimMontage.PickUpAnimMontage'")));
-	
+
 	UAnimMontage* PunchLeftMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/PunchLeftAnimMontage.PunchLeftAnimMontage'")));
-	UAnimMontage*  PunchRightMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/PunchRightAnimMontage.PunchRightAnimMontage'")));
+	UAnimMontage* PunchRightMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/PunchRightAnimMontage.PunchRightAnimMontage'")));
 	UAnimMontage* OverhandLeftMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/PunchLeftOverheadAnimMontage.PunchLeftOverheadAnimMontage'")));
 	UAnimMontage* OverhandRightMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/PunchRightOverheadAnimMontage.PunchRightOverheadAnimMontage'")));
 	UAnimMontage* UpperCutLeftMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/UpperCutPunchLeftAnimMontage.UpperCutPunchLeftAnimMontage'")));
 	UAnimMontage* UpperCutRightMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/UpperCutPunchRightAnimMontage.UpperCutPunchRightAnimMontage'")));
 	UAnimMontage* KickMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/KickAnimMontage.KickAnimMontage'")));
 	UAnimMontage* RoundKickMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/RoundKickAnimMontage.RoundKickAnimMontage'")));
-	/*UAnimMontage* HardKickMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/HardKickAnimMontage.HardKickAnimMontage'")));
-	UAnimMontage* RotatingPunchMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/RotatingPunchAnimMontage.RotatingPunchAnimMontage'")));*/
-	
+	/*UAnimMontage* HardKickMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/HardKickAnimMontage.HardKickAnimMontage'")));*/
+	UAnimMontage* RotatingPunchMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/RotatingPunchAnimMontage.RotatingPunchAnimMontage'")));
+
 	FightAnimMontages.Add(PunchLeftMontage);
 	FightAnimMontages.Add(PunchRightMontage);
 	FightAnimMontages.Add(OverhandLeftMontage);
 	FightAnimMontages.Add(OverhandRightMontage);
-	FightAnimMontages.Add(UpperCutLeftMontage);
-	FightAnimMontages.Add(UpperCutRightMontage);
-
+	/*FightAnimMontages.Add(UpperCutLeftMontage);
+	FightAnimMontages.Add(UpperCutRightMontage);*/
 	/*FightAnimMontages.Add(RotatingPunchMontage);*/
-	
-	
-	FightKickAnimMontages.Add(KickMontage);
+
+
+	/*FightKickAnimMontages.Add(KickMontage);*/
 	FightKickAnimMontages.Add(RoundKickMontage);
 	/*FightKickAnimMontages.Add(HardKickMontage);*/
-	
-	
+
+
 	UAnimMontage* GettingPunchedLeftMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/GettingPunchedLeftAnimMontage.GettingPunchedLeftAnimMontage'")));
 	UAnimMontage* GettingPunchedRightMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/GettingPunchedRightAnimMontage.GettingPunchedRightAnimMontage'")));
 	GettingPunchedMontages.Add(GettingPunchedLeftMontage);
 	GettingPunchedMontages.Add(GettingPunchedRightMontage);
-	
+
 	BlockMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/BlockAnimMontage.BlockAnimMontage'")));
 	ThrowPowerIncreaseSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/SciFiWeaponsCyberpunkArsenal/cues/Support_Material/Charge/SCIMisc_Charge_Weapon_15_Cue.SCIMisc_Charge_Weapon_15_Cue'")));
 	WarningSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/SciFiWeaponsCyberpunkArsenal/cues/Support_Material/Targeting/BEEP_Targeting_Loop_04_Cue.BEEP_Targeting_Loop_04_Cue'")));
 	BlockSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/_Main/SFX/Block_Cue.Block_Cue'")));
 	DieSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/ParagonTwinblast/Characters/Heroes/TwinBlast/Sounds/SoundCues/Twinblast_Effort_Death.Twinblast_Effort_Death'")));
+
+
+	BehaviourTree = Cast<UBehaviorTree>(StaticLoadObject(UBehaviorTree::StaticClass(), NULL, TEXT("BehaviorTree'/Game/_Main/Misc/AI/BT_xBot.BT_xBot'")));
+
+	BloodParticles = Cast<UParticleSystem>(StaticLoadObject(UParticleSystem::StaticClass(), NULL, TEXT("ParticleSystem'/Game/BallisticsVFX/Particles/Impacts/DynamicImpacts/Flesh/Blood_cloud_Dyn_2.Blood_cloud_Dyn_2'")));
 
 	/*FightTrailParticle = Cast<UParticleSystem>(StaticLoadObject(UParticleSystem::StaticClass(), NULL, TEXT("ParticleSystem'/Game/BallisticsVFX/Particles/Explosive/Whispy_Trail.Whispy_Trail'")));*/
 }
@@ -564,6 +611,7 @@ void AxBaseCharacter::Kick()
 {
 	if (!bIsFighting)
 	{
+		KickLogic();
 		ServerFight(true);
 	}
 
@@ -573,6 +621,7 @@ void AxBaseCharacter::Fight()
 {
 	if (!bIsFighting)
 	{
+		FightLogic();
 		ServerFight(false);
 	}
 
@@ -708,6 +757,34 @@ void AxBaseCharacter::Die()
 }
 
 
+void AxBaseCharacter::FightLogic()
+{
+	int32 Rand = FMath::RandRange(0, FightAnimMontages.Num() - 1);
+	FVector FowardVector = GetActorForwardVector();
+	///*UGameplayStatics::SpawnEmitterAttached(FightTrailParticle, GetMesh(), TEXT("pelvis"), FVector(0,0,0) , FRotator(0,0,0), EAttachLocation::SnapToTargetIncludingScale);*/
+	if (!GetCharacterMovement()->IsFalling())
+	{
+		PushPlayer(FVector(FowardVector.X * 500.f, FowardVector.Y * 500.f, 0), false, false);
+	}
+
+	GetMesh()->GetAnimInstance()->Montage_Play(FightAnimMontages[Rand]);
+	/*GetMesh()->GetAnimInstance()->Montage_JumpToSection(TEXT("Default"), FightAnimMontages[Rand]);*/
+
+}
+
+void AxBaseCharacter::KickLogic()
+{
+	/*int32 Rand = FMath::RandRange(0, FightKickAnimMontages.Num() - 1);*/
+	FVector FowardVector = GetActorForwardVector();
+	if (!GetCharacterMovement()->IsFalling())
+	{
+		PushPlayer(FVector(FowardVector.X * 500.f, FowardVector.Y * 500.f, 0), false, false);
+	}
+
+	GetMesh()->GetAnimInstance()->Montage_Play(FightKickAnimMontages[0]);
+}
+
+
 void AxBaseCharacter::ClientActivateTopDownViewCam_Implementation()
 {
 	if (IsLocallyControlled())
@@ -793,13 +870,10 @@ void AxBaseCharacter::ServerFight_Implementation(bool bIsKick)
 
 	/*float VelocitySize = GetVelocity().Size();*/
 	/*GetCharacterMovement()->IsFalling()*/
-	
-	FVector Force(GetActorForwardVector().X * 300.f, GetActorForwardVector().Y * 300.f, 0);
-	PushPlayer(Force, true, true);
 
 	MulticastFight(bIsKick);
-	
-	
+
+
 }
 
 bool AxBaseCharacter::ServerFight_Validate(bool bIsKick)
@@ -848,12 +922,19 @@ void AxBaseCharacter::MulticastPlayTPVBlockAnimation_Implementation()
 
 void AxBaseCharacter::MulticastFight_Implementation(bool bIsKick)
 {
-	int32 Rand = FMath::RandRange(0, !bIsKick ? FightAnimMontages.Num() - 1 : FightKickAnimMontages.Num() - 1);
+	if (!IsLocallyControlled())
+	{
+		if (!bIsKick)
+		{
+			FightLogic();
+		}
+		else
+		{
+			KickLogic();
+		}
 
-	/*UGameplayStatics::SpawnEmitterAttached(FightTrailParticle, GetMesh(), TEXT("pelvis"), FVector(0,0,0) , FRotator(0,0,0), EAttachLocation::SnapToTargetIncludingScale);*/
+	}
 
-	GetMesh()->GetAnimInstance()->Montage_Play(!bIsKick ? FightAnimMontages[Rand] : FightKickAnimMontages[Rand]);
-	
 }
 
 
@@ -938,6 +1019,11 @@ void AxBaseCharacter::MulticastPlayBlockSound_Implementation()
 	}
 }
 
+void AxBaseCharacter::MulticastBloodCloud_Implementation(FVector ImpactPoint, FRotator Rotation)
+{
+	UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), BloodParticles, ImpactPoint, Rotation);
+}
+
 // Called to bind functionality to input
 void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -955,7 +1041,7 @@ void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 	PlayerInputComponent->BindAction("ThrowBall", IE_Released, this, &AxBaseCharacter::PlayThrowBallAnim);
 
 	PlayerInputComponent->BindAction("Fight", IE_Pressed, this, &AxBaseCharacter::Fight);
-	
+
 	PlayerInputComponent->BindAction("Kick", IE_Pressed, this, &AxBaseCharacter::Kick);
 
 	PlayerInputComponent->BindAction("Block", IE_Pressed, this, &AxBaseCharacter::PlayBlockAnim);
