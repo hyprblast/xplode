@@ -18,6 +18,7 @@
 #include "Perception/AIPerceptionComponent.h"
 #include "Particles/ParticleSystem.h"
 #include "BehaviorTree/BehaviorTree.h"
+#include "Misc/Guid.h"
 #include "xBaseCharacter.generated.h"
 
 class UCameraComponent;
@@ -70,20 +71,26 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsThrowing;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools")
 		bool bIsFighting;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools")
 		bool bIsTakingHit;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
+		FGuid PlayerHittingMe;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bShouldSlide;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools")
 		bool bIsBlocking;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsDead;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Core", Replicated)
+		FGuid PlayerId;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FX")
 	UParticleSystem* BloodParticles;
@@ -125,6 +132,18 @@ public:
 	virtual bool GetPlayerIsBlocking_Implementation() override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerIsFighting();
+	virtual bool GetPlayerIsFighting_Implementation() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerIsAutoFighting();
+	virtual bool GetPlayerIsAutoFighting_Implementation() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerIsGettingHit();
+	virtual bool GetPlayerIsGettingHit_Implementation() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerHasBall();
 	virtual bool GetPlayerHasBall_Implementation() override;
 
@@ -133,8 +152,20 @@ public:
 	virtual bool GetPlayerIsDead_Implementation() override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		FGuid GetPlayerHittingMe();
+	virtual FGuid GetPlayerHittingMe_Implementation() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		FGuid GetPlayerId();
+	virtual FGuid GetPlayerId_Implementation() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SetPlayerIsThrowing(bool bPlayerIsThrowing);
 	virtual int32 SetPlayerIsThrowing_Implementation(bool bPlayerIsThrowing) override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 SetPlayerAutofight(bool bPlayerAutofight);
+	virtual int32 SetPlayerAutofight_Implementation(bool bPlayerAutofight) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SetPlayerIsBLocking(bool bPlayerIsBlocking);
@@ -182,15 +213,6 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerSetPLayerIsThrowing(bool bPlayerIsThrowing);
 
-	UFUNCTION(Server, Reliable, WithValidation)
-		void ServerSetPLayerIsFighting(bool bPlayerIsFighting);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-		void ServerSetPLayerIsBlocking(bool bPlayerIsBlocking);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-		void ServerSetPlayerIsTakingHit(bool bPlayerIsTakingHit);
-
 	UFUNCTION(NetMulticast, Unreliable)
 		void MulticastPlayTPVThrowAnimation();
 
@@ -204,23 +226,23 @@ public:
 		void ServerPlayTPVThrowBallAnim();
 
 	UFUNCTION(Server, Reliable, WithValidation)
-		void ServerFight(bool bIsKick);
+		void ServerFight(bool bIsKick, uint8 FightMoveIndex);
 
 	UFUNCTION(NetMulticast, Unreliable)
 		void MulticastPlayTPVPickupAnimation();
 
 	UFUNCTION(Server, Reliable, WithValidation)
-		void ServerPlayTPVBlockAnim();
+		void ServerBlock();
 
-	UFUNCTION(NetMulticast, Unreliable)
-		void MulticastPlayTPVBlockAnimation();
+	UFUNCTION(NetMulticast, Reliable)
+		void MulticastBlock();
 
-	UFUNCTION(NetMulticast, Unreliable)
-		void MulticastFight(bool bIsKick);
+	UFUNCTION(NetMulticast, Reliable)
+		void MulticastFight(bool bIsKick, uint8 FightMoveIndex);
 
-	UFUNCTION(NetMulticast, Unreliable)
-		void MulticastPlayTPVGettingPunchedAnimation();
-
+	UFUNCTION(NetMulticast, Reliable)
+		void MulticastGettingPunchedLogic(uint8 GettingPunchedMoveIndex);
+	
 	UFUNCTION()
 		void IncreaseThrowPower();
 
@@ -231,7 +253,10 @@ public:
 		void Kick();
 
 	UFUNCTION()
-		void PlayBlockAnim();
+		void Block();
+
+	UFUNCTION()
+		void BlockLogic();
 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
@@ -338,6 +363,12 @@ protected:
 	UPROPERTY(Replicated)
 		AxBallBase* TPVBall;
 
+	UPROPERTY(Replicated)
+		bool bIsAutoFight;
+
+	UPROPERTY(Replicated)
+		bool bIsAttackMode;
+
 	UPROPERTY(EditAnywhere, Category = "Animation")
 		TArray<UAnimMontage*> FightAnimMontages;
 
@@ -360,10 +391,16 @@ protected:
 		UAnimMontage* BlockMontage;
 
 
-
-
-
 private:
+	UPROPERTY()
+	uint8 CurrentFightMoveIndex;
+	
+	UPROPERTY()
+		UAnimMontage* LastPlayedFightingMontage;
+
+	UPROPERTY()
+		UAnimMontage* LastPlayedGettingPunchedMontage;
+
 	UPROPERTY()
 		AxGameCamera* TopDownCam;
 
@@ -374,7 +411,10 @@ private:
 		FTimerHandle HasBallTimerHandle;
 
 	UPROPERTY()
-		uint8 FightMoveIndex;
+		FTimerHandle AIDisableAttackModeTimerHandle;
+
+	UPROPERTY()
+		FTimerHandle AISetPlayerIsHitFalseTimerHandle;
 
 	UPROPERTY()
 		float PushPlayerFactor;
@@ -401,8 +441,20 @@ private:
 		void Die();
 
 	UFUNCTION()
-		void FightLogic();
+		void FightLogic(uint8 FightMoveIndex);
 
 	UFUNCTION()
-		void KickLogic();
+		void KickLogic(uint8 FightMoveIndex);
+
+	UFUNCTION()
+		void AIUnsetIsGettingHit();
+
+	UFUNCTION()
+	void AITraceAndAttack();
+
+	UFUNCTION()
+	void ResetBoolFlags();
+
+	UFUNCTION()
+	void AIDisableAttackMode();
 };

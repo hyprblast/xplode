@@ -27,10 +27,19 @@ public:
 		bool GetPlayerIsBlocking();
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerIsFighting();
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerIsAutoFighting();
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerIsDead();
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SetPlayerIsThrowing(bool bPlayerIsThrowing);
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		int32 SetPlayerAutofight(bool bPlayerAutofight);
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SetPlayerIsBLocking(bool bPlayerIsBlocking);
@@ -43,6 +52,15 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 PushPlayer(FVector Force, bool bXOverride, bool bZOverride);
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerIsGettingHit();
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		FGuid GetPlayerHittingMe();
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		FGuid GetPlayerId();
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		float GetInputAxisYawValue();

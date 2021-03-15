@@ -154,7 +154,8 @@ void AxBaseCharacter::CallOnOverlap(class UPrimitiveComponent* OverlappedCompone
 		&& OtherActor->ActorHasTag("Player")
 		&& OtherActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass())
 		&& IxBaseCharacterInterface::Execute_GetPlayerType(OtherActor) != PlayerTypeName
-		&& !IxBaseCharacterInterface::Execute_GetPlayerIsDead(OtherActor) && bIsFighting)
+		&& !IxBaseCharacterInterface::Execute_GetPlayerIsDead(OtherActor)
+		&& bIsFighting)
 	{
 
 		if (IxBaseCharacterInterface::Execute_GetPlayerIsBlocking(OtherActor))
@@ -166,37 +167,37 @@ void AxBaseCharacter::CallOnOverlap(class UPrimitiveComponent* OverlappedCompone
 
 
 
-	/*	EPhysicalSurface SurfaceType = UPhysicalMaterial::DetermineSurfaceType(SweepResult.PhysMaterial.Get());
+		/*	EPhysicalSurface SurfaceType = UPhysicalMaterial::DetermineSurfaceType(SweepResult.PhysMaterial.Get());
 
-		switch (SurfaceType)
-		{
-		case HEAD:
-		case TORSO:
-		case ARMS:
-		case LEGS:
-			GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("HEAD"));
-			A
-			break;
-		default:
-			GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("Default"));
-			break;
-		}*/
+			switch (SurfaceType)
+			{
+			case HEAD:
+			case TORSO:
+			case ARMS:
+			case LEGS:
+				GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("HEAD"));
+				A
+				break;
+			default:
+				GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("Default"));
+				break;
+			}*/
 
-		//UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), BloodParticles, SweepResult.ImpactPoint, SweepResult.ImpactNormal.Rotation());
+			//UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), BloodParticles, SweepResult.ImpactPoint, SweepResult.ImpactNormal.Rotation());
 		MulticastBloodCloud(OtherActor->GetActorLocation(), OtherActor->GetActorRotation());
 
-		if (!GetCharacterMovement()->IsFalling())
+		/*if (!GetCharacterMovement()->IsFalling())
 		{
 			FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), OtherActor->GetActorLocation());
 			MulticastSetActorRotation(LookAtRotation);
-		}
+		}*/
 
 		UFightDamageType* FightDamageType = NewObject<UFightDamageType>();
 
 		IxBaseCharacterInterface::Execute_PushPlayer(OtherActor, FVector(GetActorForwardVector().X * FightDamageType->DamageImpulse, GetActorForwardVector().Y * FightDamageType->DamageImpulse, 100.f), true, true);
 
 		UGameplayStatics::ApplyPointDamage(OtherActor, FightDamageType->Damage, CameraComp->GetForwardVector(), SweepResult, GetOwner()->GetInstigatorController(), this, FightDamageType->StaticClass());
-		
+
 	}
 }
 
@@ -215,6 +216,21 @@ bool AxBaseCharacter::GetPlayerIsBlocking_Implementation()
 	return bIsBlocking;
 }
 
+bool AxBaseCharacter::GetPlayerIsFighting_Implementation()
+{
+	return bIsFighting;
+}
+
+bool AxBaseCharacter::GetPlayerIsAutoFighting_Implementation()
+{
+	return bIsAutoFight;
+}
+
+bool AxBaseCharacter::GetPlayerIsGettingHit_Implementation()
+{
+	return bIsTakingHit;
+}
+
 bool AxBaseCharacter::GetPlayerHasBall_Implementation()
 {
 	return bHasBall;
@@ -227,6 +243,16 @@ bool AxBaseCharacter::GetPlayerIsDead_Implementation()
 	return bIsDead;
 }
 
+FGuid AxBaseCharacter::GetPlayerHittingMe_Implementation()
+{
+	return PlayerHittingMe;
+}
+
+FGuid AxBaseCharacter::GetPlayerId_Implementation()
+{
+	return PlayerId;
+}
+
 int32 AxBaseCharacter::SetPlayerIsThrowing_Implementation(bool bPlayerIsThrowing)
 {
 	ServerSetPLayerIsThrowing(bPlayerIsThrowing);
@@ -234,15 +260,21 @@ int32 AxBaseCharacter::SetPlayerIsThrowing_Implementation(bool bPlayerIsThrowing
 }
 
 
+int32 AxBaseCharacter::SetPlayerAutofight_Implementation(bool bPlayerAutofight)
+{
+	bIsAutoFight = bPlayerAutofight;
+	return 1;
+}
+
 int32 AxBaseCharacter::SetPlayerIsBLocking_Implementation(bool bPlayerIsBlocking)
 {
-	ServerSetPLayerIsBlocking(bPlayerIsBlocking);
+	bIsBlocking = false;
 	return 1;
 }
 
 int32 AxBaseCharacter::SetPlayerIsFighting_Implementation(bool bPlayerIsFighting)
 {
-	ServerSetPLayerIsFighting(bPlayerIsFighting);
+	bIsFighting = false;
 	return 1;
 }
 
@@ -255,7 +287,17 @@ int32 AxBaseCharacter::PushPlayer_Implementation(FVector Force, bool bXOverride,
 
 int32 AxBaseCharacter::SetPlayerIsGettingHit_Implementation(bool bPlayerIsGettingHit)
 {
-	ServerSetPlayerIsTakingHit(bPlayerIsGettingHit);
+	if (!ActorHasTag("Bot"))
+	{
+		bIsTakingHit = bPlayerIsGettingHit;
+	}
+	/*else
+	{
+		int32 Rand = FMath::RandRange(1.f, 5.f);
+		GetWorldTimerManager().SetTimer(
+			HasBallTimerHandle, this, &AxBaseCharacter::AIUnsetIsGettingHit, Rand, false);
+	}*/
+
 	return 1;
 }
 
@@ -310,6 +352,9 @@ void AxBaseCharacter::BeginPlay()
 
 	if (HasAuthority())
 	{
+		// Create unique id for this player
+		PlayerId = FGuid::NewGuid();
+
 		OnTakeAnyDamage.AddDynamic(this, &AxBaseCharacter::HandleTakeAnyDamage);
 		LeftHandCollisionComp->OnComponentBeginOverlap.AddDynamic(this, &AxBaseCharacter::CallOnOverlap);
 		RightHandCollisionComp->OnComponentBeginOverlap.AddDynamic(this, &AxBaseCharacter::CallOnOverlap);
@@ -365,18 +410,15 @@ void AxBaseCharacter::HandleTakeAnyDamage(AActor* DamagedActor, float Damage, co
 
 	if (!bIsDead && IsValid(DamageType) && DamageType->GetClass()->ImplementsInterface(UxBaseDamageTypeInterface::StaticClass()))
 	{
-
-
 		FName DamageTypeName = IxBaseDamageTypeInterface::Execute_GetDamageTypeName(DamageType);
+
+		PlayerHittingMe = IxBaseCharacterInterface::Execute_GetPlayerId(DamageCauser);
 
 		if (DamageTypeName == TEXT("Fight"))
 		{
-			if (!bIsTakingHit)
-			{
-				bIsTakingHit = true;
-				MulticastPlayTPVGettingPunchedAnimation();
+			int32 GettingPunchedMoveIndex = FMath::RandRange(0, GettingPunchedMontages.Num() - 1);
 
-			}
+			MulticastGettingPunchedLogic(GettingPunchedMoveIndex);
 
 			if (bHasBall)
 			{
@@ -386,6 +428,10 @@ void AxBaseCharacter::HandleTakeAnyDamage(AActor* DamagedActor, float Damage, co
 
 		Health -= Damage;
 
+		if (ActorHasTag("Bot"))
+		{
+			bIsAutoFight = true;
+		}
 	}
 
 	GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, FString::SanitizeFloat(Health));
@@ -398,19 +444,53 @@ void AxBaseCharacter::Tick(float DeltaTime)
 
 	if (HasAuthority())
 	{
-		if (bIsAddingThrowPower && ThrowPower < MaxThrowPower)
+		if (!bIsDead)
 		{
-			ThrowPower += 500;
-
-			if (GEngine)
+			if (bIsAddingThrowPower && ThrowPower < MaxThrowPower)
 			{
-				GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, FString::SanitizeFloat(ThrowPower));
+				ThrowPower += 500;
+
+				if (GEngine)
+				{
+					GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, FString::SanitizeFloat(ThrowPower));
+				}
 			}
-		}
-		else if (Health <= 0 && !bIsDead)
-		{
-			bIsDead = true;
-			MulticastKilled();
+			if (Health <= 0 && !bIsDead)
+			{
+				bIsDead = true;
+				MulticastKilled();
+			}
+			if (ActorHasTag("Bot"))
+			{
+				/*Setting attack mode for bot on the server
+				2 attack conditions - 1: Autofight (this happens when is getting hit or when is going after the ball, this last one is set on BT) and 2: it has ball possession.*/
+
+				if (bIsAutoFight || bHasBall)
+				{
+					if (!bIsAttackMode)
+					{
+						bIsAttackMode = true;
+						int32 Time = FMath::RandRange(1.f, 5.f);
+
+						FTimerHandle TimerHandle;
+						
+						GetWorldTimerManager().SetTimer(
+							TimerHandle, this, &AxBaseCharacter::AIDisableAttackMode, Time, false);
+
+
+						GetWorldTimerManager().SetTimer(
+							AIDisableAttackModeTimerHandle, this, &AxBaseCharacter::AITraceAndAttack, .5f, true);
+					}
+				}
+				else
+				{
+					if (bIsAttackMode)
+					{
+						bIsAttackMode = false;
+					}
+				}
+				
+			}
 		}
 	}
 }
@@ -609,41 +689,45 @@ void AxBaseCharacter::IncreaseThrowPower()
 
 void AxBaseCharacter::Kick()
 {
-	if (!bIsFighting)
-	{
-		KickLogic();
-		ServerFight(true);
-	}
-
+	KickLogic(0);
+	ServerFight(true, 0);
 }
 
 void AxBaseCharacter::Fight()
 {
-	if (!bIsFighting)
-	{
-		FightLogic();
-		ServerFight(false);
-	}
+	int32 FightMoveIndex = FMath::RandRange(0, FightAnimMontages.Num() - 1);
+
+	FightLogic(FightMoveIndex);
+	ServerFight(false, FightMoveIndex);
 
 }
 
-void AxBaseCharacter::PlayBlockAnim()
+void AxBaseCharacter::Block()
 {
-	if (!bIsBlocking)
+	if (!bIsBlocking && !bIsFighting)
 	{
-		ServerPlayTPVBlockAnim();
+		BlockLogic();
+		ServerBlock();
+	}
+}
+
+void AxBaseCharacter::BlockLogic()
+{
+
+	if (!GetMesh()->GetAnimInstance()->Montage_IsPlaying(BlockMontage))
+	{
+		bIsBlocking = true;
+		GetMesh()->GetAnimInstance()->Montage_Play(BlockMontage);
 	}
 }
 
 
 void AxBaseCharacter::ServerIncreaseThrowPower_Implementation()
 {
-
 	if (bHasBall)
 	{
 		bIsAddingThrowPower = true;
 	}
-
 }
 
 bool AxBaseCharacter::ServerIncreaseThrowPower_Validate()
@@ -757,33 +841,112 @@ void AxBaseCharacter::Die()
 }
 
 
-void AxBaseCharacter::FightLogic()
+void AxBaseCharacter::FightLogic(uint8 FightMoveIndex)
 {
-	int32 Rand = FMath::RandRange(0, FightAnimMontages.Num() - 1);
-	FVector FowardVector = GetActorForwardVector();
-	///*UGameplayStatics::SpawnEmitterAttached(FightTrailParticle, GetMesh(), TEXT("pelvis"), FVector(0,0,0) , FRotator(0,0,0), EAttachLocation::SnapToTargetIncludingScale);*/
-	if (!GetCharacterMovement()->IsFalling())
+	if (!IsValid(LastPlayedFightingMontage) || !GetMesh()->GetAnimInstance()->Montage_IsPlaying(LastPlayedFightingMontage))
 	{
-		PushPlayer(FVector(FowardVector.X * 500.f, FowardVector.Y * 500.f, 0), false, false);
-	}
+		bIsFighting = true;
 
-	GetMesh()->GetAnimInstance()->Montage_Play(FightAnimMontages[Rand]);
-	/*GetMesh()->GetAnimInstance()->Montage_JumpToSection(TEXT("Default"), FightAnimMontages[Rand]);*/
+		FVector FowardVector = GetActorForwardVector();
+
+		if (!GetCharacterMovement()->IsFalling())
+		{
+			PushPlayer(FVector(FowardVector.X * 500.f, FowardVector.Y * 500.f, 0), false, false);
+		}
+
+		GetMesh()->GetAnimInstance()->Montage_Play(FightAnimMontages[FightMoveIndex]);
+		LastPlayedFightingMontage = FightAnimMontages[FightMoveIndex];
+	}
+}
+
+void AxBaseCharacter::KickLogic(uint8 FightMoveIndex)
+{
+
+	if (!IsValid(LastPlayedFightingMontage) || !GetMesh()->GetAnimInstance()->Montage_IsPlaying(LastPlayedFightingMontage))
+	{
+		bIsFighting = true;
+		FVector FowardVector = GetActorForwardVector();
+
+		if (!GetCharacterMovement()->IsFalling())
+		{
+			PushPlayer(FVector(FowardVector.X * 500.f, FowardVector.Y * 500.f, 0), false, false);
+		}
+
+		GetMesh()->GetAnimInstance()->Montage_Play(FightKickAnimMontages[FightMoveIndex]);
+		LastPlayedFightingMontage = FightKickAnimMontages[FightMoveIndex];
+	}
 
 }
 
-void AxBaseCharacter::KickLogic()
-{
-	/*int32 Rand = FMath::RandRange(0, FightKickAnimMontages.Num() - 1);*/
-	FVector FowardVector = GetActorForwardVector();
-	if (!GetCharacterMovement()->IsFalling())
-	{
-		PushPlayer(FVector(FowardVector.X * 500.f, FowardVector.Y * 500.f, 0), false, false);
-	}
 
-	GetMesh()->GetAnimInstance()->Montage_Play(FightKickAnimMontages[0]);
+void AxBaseCharacter::AIUnsetIsGettingHit()
+{
+	ResetBoolFlags();
+
+	GetWorld()->GetTimerManager().ClearTimer(AISetPlayerIsHitFalseTimerHandle);
+
 }
 
+void AxBaseCharacter::AITraceAndAttack()
+{
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(this);
+	QueryParams.bTraceComplex = true;
+	QueryParams.bReturnPhysicalMaterial = true;
+
+	FHitResult Hit;
+	FVector TraceStart = CameraComp->GetComponentLocation();
+	FVector TraceEnd = TraceStart + (GetActorForwardVector() * 250);
+
+	//DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor(255.0, 0, 0), true);
+	if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility, QueryParams))
+	{
+		AActor* HitActor = Hit.GetActor();
+
+		if (IsValid(HitActor) &&
+			HitActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()) &&
+			(bIsAutoFight ? PlayerHittingMe == IxBaseCharacterInterface::Execute_GetPlayerId(HitActor) : true) &&
+			!IxBaseCharacterInterface::Execute_GetPlayerIsDead(HitActor))
+		{
+
+			if (CurrentFightMoveIndex > FightAnimMontages.Num())
+			{
+				CurrentFightMoveIndex = 0;
+			}
+
+			
+			if (CurrentFightMoveIndex <= FightAnimMontages.Num() - 1)
+			{
+				ServerFight(false, CurrentFightMoveIndex);
+			}
+			else
+			{
+				ServerFight(true, 0);
+			}
+
+			CurrentFightMoveIndex++;
+
+		}
+	}
+}
+
+void AxBaseCharacter::ResetBoolFlags()
+{
+	bIsFighting = false;
+	bIsBlocking = false;
+	bIsTakingHit = false;
+	bIsThrowing = false;
+	bIsAddingThrowPower = false;
+	bIsAttackMode = false;
+	bIsAutoFight = false;
+	bIsAutoFight = false;
+}
+
+void AxBaseCharacter::AIDisableAttackMode()
+{
+	ResetBoolFlags();
+	GetWorld()->GetTimerManager().ClearTimer(AIDisableAttackModeTimerHandle);
+}
 
 void AxBaseCharacter::ClientActivateTopDownViewCam_Implementation()
 {
@@ -864,19 +1027,16 @@ bool AxBaseCharacter::ServerPlayTPVThrowBallAnim_Validate()
 	return true;
 }
 
-void AxBaseCharacter::ServerFight_Implementation(bool bIsKick)
+void AxBaseCharacter::ServerFight_Implementation(bool bIsKick, uint8 FightMoveIndex)
 {
-	bIsFighting = true;
-
 	/*float VelocitySize = GetVelocity().Size();*/
 	/*GetCharacterMovement()->IsFalling()*/
-
-	MulticastFight(bIsKick);
+	MulticastFight(bIsKick, FightMoveIndex);
 
 
 }
 
-bool AxBaseCharacter::ServerFight_Validate(bool bIsKick)
+bool AxBaseCharacter::ServerFight_Validate(bool bIsKick, uint8 FightMoveIndex)
 {
 	return true;
 }
@@ -885,6 +1045,8 @@ void AxBaseCharacter::MulticastPlayTPVPickupAnimation_Implementation()
 {
 	if (IsValid(PickupBallMontage))
 	{
+		ResetBoolFlags();
+
 		if (IsLocallyControlled())
 		{
 			SkeletalMeshComp->GetAnimInstance()->Montage_Play(PickupBallMontage);
@@ -898,54 +1060,58 @@ void AxBaseCharacter::MulticastPlayTPVPickupAnimation_Implementation()
 
 
 
-void AxBaseCharacter::ServerPlayTPVBlockAnim_Implementation()
+void AxBaseCharacter::ServerBlock_Implementation()
 {
-	bIsBlocking = true;
-	bIsFighting = false;
-
-	MulticastPlayTPVBlockAnimation();
+	MulticastBlock();
 }
 
-bool AxBaseCharacter::ServerPlayTPVBlockAnim_Validate()
+bool AxBaseCharacter::ServerBlock_Validate()
 {
 	return true;
 }
 
 
-void AxBaseCharacter::MulticastPlayTPVBlockAnimation_Implementation()
+void AxBaseCharacter::MulticastBlock_Implementation()
 {
-	if (IsValid(BlockMontage))
+
+	if (!IsLocallyControlled())
 	{
-		GetMesh()->GetAnimInstance()->Montage_Play(BlockMontage);
+		BlockLogic();
 	}
 }
 
-void AxBaseCharacter::MulticastFight_Implementation(bool bIsKick)
+void AxBaseCharacter::MulticastFight_Implementation(bool bIsKick, uint8 FightMoveIndex)
 {
-	if (!IsLocallyControlled())
+	if (!IsLocallyControlled() || bIsAutoFight)
 	{
 		if (!bIsKick)
 		{
-			FightLogic();
+			FightLogic(FightMoveIndex);
 		}
 		else
 		{
-			KickLogic();
+			KickLogic(FightMoveIndex);
 		}
 
 	}
 
 }
-
-
-void AxBaseCharacter::MulticastPlayTPVGettingPunchedAnimation_Implementation()
+void AxBaseCharacter::MulticastGettingPunchedLogic_Implementation(uint8 GettingPunchedMoveIndex)
 {
-	int32 Rand = FMath::RandRange(0, GettingPunchedMontages.Num() - 1);
-	GetMesh()->GetAnimInstance()->Montage_Play(GettingPunchedMontages[Rand]);
+	if (!IsValid(LastPlayedGettingPunchedMontage) || !GetMesh()->GetAnimInstance()->Montage_IsPlaying(GettingPunchedMontages[GettingPunchedMoveIndex]))
+	{
+		bIsTakingHit = true;
+		bIsFighting = false;
+		bIsBlocking = false;
+
+		GetMesh()->GetAnimInstance()->Montage_Play(GettingPunchedMontages[GettingPunchedMoveIndex]);
+		LastPlayedGettingPunchedMontage = GettingPunchedMontages[GettingPunchedMoveIndex];
+	}
 }
 
 void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraFowardVector, bool bJustDropBall)
 {
+	ResetBoolFlags();
 	TPVBall->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 	TPVBall->Shoot(CameraFowardVector * (!bJustDropBall ? FMath::Clamp(ThrowPower, MinThrowPower, MaxThrowPower) : 5000.f));
 	UnSubscribeToBallWarnEvent();
@@ -969,37 +1135,6 @@ bool AxBaseCharacter::ServerSetPLayerIsThrowing_Validate(bool bPlayerIsThrowing)
 	return true;
 }
 
-void AxBaseCharacter::ServerSetPLayerIsFighting_Implementation(bool bPlayerIsFighting)
-{
-	bIsFighting = bPlayerIsFighting;
-}
-
-bool AxBaseCharacter::ServerSetPLayerIsFighting_Validate(bool bPlayerIsFighting)
-{
-	return true;
-}
-
-
-
-void AxBaseCharacter::ServerSetPLayerIsBlocking_Implementation(bool bPlayerIsBlocking)
-{
-	bIsBlocking = bPlayerIsBlocking;
-}
-
-bool AxBaseCharacter::ServerSetPLayerIsBlocking_Validate(bool bPlayerIsBlocking)
-{
-	return true;
-}
-
-void AxBaseCharacter::ServerSetPlayerIsTakingHit_Implementation(bool bPlayerIsTakingHit)
-{
-	bIsTakingHit = bPlayerIsTakingHit;
-}
-
-bool AxBaseCharacter::ServerSetPlayerIsTakingHit_Validate(bool bPlayerIsTakingHit)
-{
-	return true;
-}
 
 void AxBaseCharacter::MulticastPlayTPVThrowAnimation_Implementation()
 {
@@ -1044,7 +1179,7 @@ void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 
 	PlayerInputComponent->BindAction("Kick", IE_Pressed, this, &AxBaseCharacter::Kick);
 
-	PlayerInputComponent->BindAction("Block", IE_Pressed, this, &AxBaseCharacter::PlayBlockAnim);
+	PlayerInputComponent->BindAction("Block", IE_Pressed, this, &AxBaseCharacter::Block);
 
 	PlayerInputComponent->BindAction("CamToggle", IE_Pressed, this, &AxBaseCharacter::CamToggle);
 }
@@ -1081,6 +1216,7 @@ void AxBaseCharacter::DestroyBalls()
 	bIsThrowing = false;
 	bIsAddingThrowPower = false;
 
+
 	GetWorldTimerManager().SetTimer(
 		HasBallTimerHandle, this, &AxBaseCharacter::SetHasBallFalse, .3f, false);
 
@@ -1105,10 +1241,11 @@ void AxBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(AxBaseCharacter, Health);
 	DOREPLIFETIME(AxBaseCharacter, bIsAddingThrowPower);
 	DOREPLIFETIME(AxBaseCharacter, PlayerTypeName);
-	DOREPLIFETIME(AxBaseCharacter, bIsFighting);
-	DOREPLIFETIME(AxBaseCharacter, bIsBlocking);
-	DOREPLIFETIME(AxBaseCharacter, bIsTakingHit);
 	DOREPLIFETIME(AxBaseCharacter, bIsDead);
+	DOREPLIFETIME(AxBaseCharacter, PlayerId);
+	DOREPLIFETIME(AxBaseCharacter, PlayerHittingMe);
+	DOREPLIFETIME(AxBaseCharacter, bIsAutoFight);
+	DOREPLIFETIME(AxBaseCharacter, bIsAttackMode);
 
 
 }
