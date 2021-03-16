@@ -157,15 +157,19 @@ void AxBaseCharacter::CallOnOverlap(class UPrimitiveComponent* OverlappedCompone
 		&& !IxBaseCharacterInterface::Execute_GetPlayerIsDead(OtherActor)
 		&& bIsFighting)
 	{
+		
+		int32 ShouldAIBlock = FMath::RandRange(1, 50);
 
-		if (IxBaseCharacterInterface::Execute_GetPlayerIsBlocking(OtherActor))
+		if (IxBaseCharacterInterface::Execute_GetPlayerIsBlocking(OtherActor) || (OtherActor->ActorHasTag("Bot") && ShouldAIBlock > 30 && ShouldAIBlock % 2 != 0))
 		{
+			if (OtherActor->ActorHasTag("Bot"))
+			{
+				IxBaseCharacterInterface::Execute_AIBlock(OtherActor);
+			}
 			MulticastPlayBlockSound();
 			IxBaseCharacterInterface::Execute_PushPlayer(OtherActor, FVector(GetActorForwardVector().X * 100.f, GetActorForwardVector().Y * 100.f, 100.f), true, true);
 			return;
 		}
-
-
 
 		/*	EPhysicalSurface SurfaceType = UPhysicalMaterial::DetermineSurfaceType(SweepResult.PhysMaterial.Get());
 
@@ -269,6 +273,12 @@ int32 AxBaseCharacter::SetPlayerAutofight_Implementation(bool bPlayerAutofight)
 int32 AxBaseCharacter::SetPlayerIsBLocking_Implementation(bool bPlayerIsBlocking)
 {
 	bIsBlocking = false;
+	return 1;
+}
+
+uint8 AxBaseCharacter::AIBlock_Implementation()
+{
+	MulticastBlock(true);
 	return 1;
 }
 
@@ -491,6 +501,10 @@ void AxBaseCharacter::Tick(float DeltaTime)
 				}
 				
 			}
+		}
+		else
+		{
+
 		}
 	}
 }
@@ -1062,7 +1076,7 @@ void AxBaseCharacter::MulticastPlayTPVPickupAnimation_Implementation()
 
 void AxBaseCharacter::ServerBlock_Implementation()
 {
-	MulticastBlock();
+	MulticastBlock(false);
 }
 
 bool AxBaseCharacter::ServerBlock_Validate()
@@ -1071,10 +1085,10 @@ bool AxBaseCharacter::ServerBlock_Validate()
 }
 
 
-void AxBaseCharacter::MulticastBlock_Implementation()
+void AxBaseCharacter::MulticastBlock_Implementation(bool IsAI)
 {
 
-	if (!IsLocallyControlled())
+	if (!IsLocallyControlled() || IsAI)
 	{
 		BlockLogic();
 	}

@@ -172,6 +172,10 @@ public:
 	virtual int32 SetPlayerIsBLocking_Implementation(bool bPlayerIsBlocking) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		uint8 AIBlock();
+	virtual uint8 AIBlock_Implementation() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SetPlayerIsFighting(bool bPlayerIsFighting);
 	virtual int32 SetPlayerIsFighting_Implementation(bool bPlayerIsFighting) override;
 
@@ -235,7 +239,7 @@ public:
 		void ServerBlock();
 
 	UFUNCTION(NetMulticast, Reliable)
-		void MulticastBlock();
+		void MulticastBlock(bool IsAI);
 
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastFight(bool bIsKick, uint8 FightMoveIndex);
@@ -392,6 +396,7 @@ protected:
 
 
 private:
+	
 	UPROPERTY()
 	uint8 CurrentFightMoveIndex;
 	

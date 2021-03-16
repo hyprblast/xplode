@@ -36,6 +36,9 @@ public:
 		bool GetPlayerIsDead();
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		uint8 AIBlock();
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SetPlayerIsThrowing(bool bPlayerIsThrowing);
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
