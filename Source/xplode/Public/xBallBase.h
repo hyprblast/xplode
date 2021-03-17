@@ -15,6 +15,7 @@
 #include "Camera/CameraComponent.h"
 #include "xplodeGameStateBase.h"
 #include "Perception/AIPerceptionStimuliSourceComponent.h"
+//#include "SmoothSync.h"
 #include "xBallBase.generated.h"
 
 
@@ -68,7 +69,7 @@ public:
 
 
 	// Called every frame
-	/*virtual void Tick(float DeltaTime) override;*/
+	virtual void Tick(float DeltaTime) override;
 
 	/*UFUNCTION()
 		void OnCompHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);*/
@@ -77,7 +78,16 @@ public:
 		UStaticMeshComponent* SphereComp;
 
 	/*UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-		UProjectileMovementComponent* ProjectileMovementComp;*/
+		class USmoothSync* SmoothSyncComp;*/
+
+		//UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+		//	USmoothSync* SmoothSyncComp;
+
+		/*UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+			USmoothSync* SmoothSyncComp;*/
+
+			/*UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+				UProjectileMovementComponent* ProjectileMovementComp;*/
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 		UAIPerceptionStimuliSourceComponent* AIPerceptionStimuliSourceComp;
@@ -118,6 +128,17 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Events")
 		FExplodeEvent OnExploding;
 
+	UPROPERTY(ReplicatedUsing = OnRep_Location)
+		FVector ServerLocation;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Rotation)
+		FQuat ServerRotation;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Velocity)
+		FVector ServerVelocity;
+	UPROPERTY(ReplicatedUsing = OnRep_AngularVelocity)
+		FVector ServerAngularVelocity;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -151,10 +172,22 @@ private:
 		USoundCue* ScoreSoundFx;
 
 	UPROPERTY()
+		bool bInterpLocation;
+	UPROPERTY()
+		bool bInterpRotation;
+	UPROPERTY()
+		bool bInterpVelocity;
+	UPROPERTY()
+		bool bInterpAngularVelocity;
+
+	UPROPERTY()
 		USoundCue* HitPostSoundFx;
 
 	UPROPERTY()
 		USoundCue* HitWallSoundFx;
+
+	UPROPERTY()
+		float InterpRate = .85f;
 
 	UFUNCTION()
 		void ClearTimer();
@@ -174,5 +207,13 @@ private:
 	UFUNCTION()
 		void DestroyAndSpawnNewBall();
 
+	UFUNCTION()
+		void OnRep_Location();
+	UFUNCTION()
+		void OnRep_Rotation();
+	UFUNCTION()
+		void OnRep_Velocity();
+	UFUNCTION()
+		void OnRep_AngularVelocity();
 
 };

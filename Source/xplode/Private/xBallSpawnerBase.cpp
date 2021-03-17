@@ -40,21 +40,10 @@ void AxBallSpawnerBase::MulticastPlayBallSound_Implementation()
 	UGameplayStatics::PlaySoundAtLocation(GetWorld(), PlayBallSoundFx, GetActorLocation());
 }
 
-void AxBallSpawnerBase::MulticastPlayBackgroundSound_Implementation()
-{
-	if (!bIsBackgroundPlaying)
-	{
-		bIsBackgroundPlaying = true;
-		UGameplayStatics::PlaySoundAtLocation(GetWorld(), BackgroundSoundFx, GetActorLocation());
-	}
-	
-}
-
 
 void AxBallSpawnerBase::LoadDynamicRefs()
 {
 	PlayBallSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/_Main/SFX/PlayBall_Cue.PlayBall_Cue'")));
-	BackgroundSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/_Main/SFX/background_Cue.background_Cue'")));
 }
 
 void AxBallSpawnerBase::SpawnBall()
@@ -62,6 +51,7 @@ void AxBallSpawnerBase::SpawnBall()
 	if (HasAuthority())
 	{
 		GameState->bShouldSpawnNewBall = false;
+		GameState->bBallSpawned = true;
 		FActorSpawnParameters SpawnParams;
 		SpawnParams.Owner = this;
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -71,7 +61,6 @@ void AxBallSpawnerBase::SpawnBall()
 
 		AxBallBase* Ball = GetWorld()->SpawnActor<AxBallBase>(AxBallBase::StaticClass(), SpawnWhere, SpawnParams);
 		MulticastPlayBallSound();
-		MulticastPlayBackgroundSound();
 		Ball->Shoot(FVector(0, 0, 9000.f));
 	}
 	

@@ -12,14 +12,14 @@
 #include "Chaos/ChaosEngineInterface.h"
 #include "xplodeGameStateBase.h"
 #include "Perception/AISense_Sight.h"
-#include <Perception/AIPerceptionSystem.h>
+#include "Perception/AIPerceptionSystem.h"
 
 
 
 // Sets default values
 AxBallBase::AxBallBase()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 
 	SphereComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Sphere"));
 	SphereComp->SetCollisionObjectType(XBALLOBJECT_CHANNEL);
@@ -29,7 +29,8 @@ AxBallBase::AxBallBase()
 	/*SphereComp->SetLinearDamping(0);*/
 	SphereComp->SetSimulatePhysics(false);
 	SphereComp->SetNotifyRigidBodyCollision(true);
-
+	SphereComp->bReplicatePhysicsToAutonomousProxy = true;
+	
 
 	/*SphereComp->SetNotifyRigidBodyCollision(true);*/
 
@@ -39,6 +40,9 @@ AxBallBase::AxBallBase()
 	SphereComp->CanCharacterStepUp(false);
 	/*SphereComp->SetWorldScale3D(FVector(1.5f, 1.5f, 1.5f));*/
 	
+	/*SmoothSyncComp = CreateDefaultSubobject<USmoothSync>(TEXT("SmoothSync"));*/
+	
+	
 	AIPerceptionStimuliSourceComp = CreateDefaultSubobject<UAIPerceptionStimuliSourceComponent>(TEXT("AIPerceptionStimuli"));
 	AIPerceptionStimuliSourceComp->bAutoRegister = true;
 	AIPerceptionStimuliSourceComp->RegisterForSense(TSubclassOf<UAISense_Sight>());
@@ -47,13 +51,14 @@ AxBallBase::AxBallBase()
 
 	SetRootComponent(SphereComp);
 
-	
+	/*NetUpdateFrequency = 200;*/
 
 	bReplicates = true;
 	SetReplicateMovement(true);
 
 	Tags.Add("Ball");
 }
+
 
 void AxBallBase::CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, class AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
@@ -63,8 +68,9 @@ void AxBallBase::CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, c
 			OtherActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()) &&
 			!IxBaseCharacterInterface::Execute_GetPlayerHasBall(OtherActor))
 		{
-			RemoveOverlapAndPhysics();
+			
 			IxBaseCharacterInterface::Execute_PickupBall(OtherActor, this);
+			RemoveOverlapAndPhysics();
 			//Destroy();
 		}
 		else if (OtherActor->ActorHasTag("Goal"))
@@ -131,6 +137,16 @@ void AxBallBase::BeginPlay()
 	// SphereComponent is replicated so just set the staticmesh on server
 	if (HasAuthority())
 	{
+		/*SmoothSyncComp->positionLerpSpeed = .1f;
+		SmoothSyncComp->rotationLerpSpeed = .1f;
+		SmoothSyncComp->scaleLerpSpeed = .1f;
+		SmoothSyncComp->positionSnapThreshold = 0;
+		SmoothSyncComp->rotationSnapThreshold = 0;
+		SmoothSyncComp->timeSmoothing = 10.f;
+		SmoothSyncComp->syncMovementMode = false;*/
+		/*SmoothSyncComp->syncRotation = SyncMode::NONE;
+		SmoothSyncComp->syncPosition = SyncMode::NONE;*/
+		
 		SetStaticMesh();
 		SphereComp->OnComponentBeginOverlap.AddDynamic(this, &AxBallBase::CallOnOverlap);
 		SphereComp->OnComponentHit.AddDynamic(this, &AxBallBase::OnCompHit);
@@ -315,12 +331,66 @@ void AxBallBase::DestroyAndSpawnNewBall()
 	Destroy();
 }
 
+void AxBallBase::OnRep_Location()
+{
+	bInterpLocation = true;
+}
+
+void AxBallBase::OnRep_Rotation()
+{
+	bInterpRotation = true;
+}
+
+void AxBallBase::OnRep_Velocity()
+{
+	bInterpVelocity = true;
+}
+
+void AxBallBase::OnRep_AngularVelocity()
+{
+	bInterpAngularVelocity = true;
+}
+
 //Called every frame
-//void AxBallBase::Tick(float DeltaTime)
-//{
-//	Super::Tick(DeltaTime);
-//
-//}
+void AxBallBase::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	
+	if (HasAuthority())
+	{
+		ServerLocation = GetActorLocation();
+		ServerRotation = GetActorQuat();
+		ServerVelocity = GetVelocity();
+		ServerAngularVelocity = SphereComp->GetPhysicsAngularVelocityInDegrees();
+	}
+	else
+	{
+		if (bInterpLocation && GetActorLocation() != ServerLocation)
+		{
+			SetActorLocation(FMath::Lerp(GetActorLocation(), ServerLocation, InterpRate * DeltaTime), false, 0, ETeleportType::TeleportPhysics);
+			bInterpLocation = false;
+		}
+
+		if (bInterpRotation && GetActorQuat() != ServerRotation)
+		{
+			SetActorRotation(FMath::Lerp(GetActorQuat(), ServerRotation, InterpRate * DeltaTime), ETeleportType::TeleportPhysics);
+			bInterpRotation = false;
+		}
+
+		if (bInterpVelocity && SphereComp->GetPhysicsLinearVelocity() != ServerVelocity)
+		{
+			SphereComp->SetPhysicsLinearVelocity(ServerVelocity);
+			bInterpVelocity = false;
+		}
+
+		if (bInterpAngularVelocity && SphereComp->GetPhysicsAngularVelocityInDegrees() != ServerAngularVelocity)
+		{
+			SphereComp->SetPhysicsAngularVelocityInDegrees(ServerAngularVelocity);
+			bInterpAngularVelocity = false;
+		}
+	}
+
+}
 
 void AxBallBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -329,5 +399,9 @@ void AxBallBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 	DOREPLIFETIME(AxBallBase, bIsExplodeMode);
 	DOREPLIFETIME(AxBallBase, ExplodeLevel);
 	DOREPLIFETIME(AxBallBase, bIsExploding);
+	DOREPLIFETIME(AxBallBase, ServerLocation);
+	DOREPLIFETIME(AxBallBase, ServerRotation);
+	DOREPLIFETIME(AxBallBase, ServerVelocity);
+	DOREPLIFETIME(AxBallBase, ServerAngularVelocity);
 }
 

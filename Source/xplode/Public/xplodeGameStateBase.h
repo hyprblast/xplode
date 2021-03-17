@@ -23,4 +23,7 @@ public:
 	UPROPERTY(Replicated)
 	bool bShouldSpawnNewBall;
 
+	UPROPERTY(Replicated)
+		bool bBallSpawned;
+
 };

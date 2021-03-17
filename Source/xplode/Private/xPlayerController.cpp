@@ -79,8 +79,7 @@ void AxPlayerController::ServerSelectPlayerType_Implementation(FName TypeName)
 	{
 		GameMode->RequestSpawnPlayerType(TypeName, this);
 		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, GameState->GetMatchState().ToString());
-		GameState->bShouldSpawnNewBall = true;
-	
+		GameState->bShouldSpawnNewBall = !GameState->bBallSpawned;
 	}
 }
 

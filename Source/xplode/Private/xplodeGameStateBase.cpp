@@ -20,6 +20,7 @@ void AxplodeGameStateBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AxplodeGameStateBase, bShouldSpawnNewBall);
+	DOREPLIFETIME(AxplodeGameStateBase, bBallSpawned);
 
 }
 

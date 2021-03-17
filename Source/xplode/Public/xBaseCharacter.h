@@ -71,10 +71,10 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsThrowing;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsFighting;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsTakingHit;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
@@ -83,7 +83,7 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bShouldSlide;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsBlocking;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
@@ -100,6 +100,9 @@ public:
 
 	UPROPERTY()
 		UAudioComponent* ThrowPowerAudioComponent;
+
+	UPROPERTY()
+		UAudioComponent* BlockAudioComponent;
 
 	UPROPERTY()
 		UAudioComponent* WarnAudioComponent;
@@ -200,10 +203,6 @@ public:
 	virtual float GetInputAxisYawValue_Implementation() override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		int32 DetachBall(AxBallBase* Ball);
-	virtual int32 DetachBall_Implementation(AxBallBase* Ball) override;
-
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 AttachBall();
 	virtual int32 AttachBall_Implementation() override;
 
@@ -214,14 +213,17 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerThrowBall(FVector CameraFowardVector, bool bJustDropBall);
 
+	UFUNCTION(Client, Reliable)
+		void ClientThrowBall(FVector CameraFowardVector, bool bJustDropBall);
+
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerSetPLayerIsThrowing(bool bPlayerIsThrowing);
 
 	UFUNCTION(NetMulticast, Unreliable)
 		void MulticastPlayTPVThrowAnimation();
 
-	UFUNCTION(NetMulticast, Unreliable)
-		void MulticastPlayBlockSound();
+	UFUNCTION(Client, Reliable)
+		void ClientPlayBlockSound();
 
 	UFUNCTION(NetMulticast, Unreliable)
 		void MulticastBloodCloud(FVector ImpactPoint, FRotator Rotation);
@@ -239,7 +241,7 @@ public:
 		void ServerBlock();
 
 	UFUNCTION(NetMulticast, Reliable)
-		void MulticastBlock(bool IsAI);
+		void MulticastBlock();
 
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastFight(bool bIsKick, uint8 FightMoveIndex);
@@ -307,10 +309,6 @@ public:
 
 	UFUNCTION()
 		void OnBallExploding();
-
-	UFUNCTION()
-		void SetHasBallFalse();
-
 
 
 protected:
@@ -401,9 +399,6 @@ private:
 	uint8 CurrentFightMoveIndex;
 	
 	UPROPERTY()
-		UAnimMontage* LastPlayedFightingMontage;
-
-	UPROPERTY()
 		UAnimMontage* LastPlayedGettingPunchedMontage;
 
 	UPROPERTY()
@@ -411,9 +406,6 @@ private:
 
 	UPROPERTY()
 		UxCameraView CameraVieww;
-
-	UPROPERTY()
-		FTimerHandle HasBallTimerHandle;
 
 	UPROPERTY()
 		FTimerHandle AIDisableAttackModeTimerHandle;
@@ -426,6 +418,9 @@ private:
 
 	UPROPERTY()
 	UBehaviorTree* BehaviourTree;
+
+	UPROPERTY()
+		USoundCue* BackgroundSoundFx;
 
 	UFUNCTION()
 		void FindTopDownCamera();
@@ -440,9 +435,6 @@ private:
 		void LoadDynamicRefs();
 
 	UFUNCTION()
-		void DestroyBalls();
-
-	UFUNCTION()
 		void Die();
 
 	UFUNCTION()
@@ -452,14 +444,15 @@ private:
 		void KickLogic(uint8 FightMoveIndex);
 
 	UFUNCTION()
-		void AIUnsetIsGettingHit();
-
-	UFUNCTION()
 	void AITraceAndAttack();
 
 	UFUNCTION()
-	void ResetBoolFlags();
+	void ResetBoolFlags(bool ResetBallPossession, bool ResetAtackMode);
 
 	UFUNCTION()
 	void AIDisableAttackMode();
+
+	UFUNCTION()
+	bool AreFightingRelatedMontagesPlaying();
+
 };

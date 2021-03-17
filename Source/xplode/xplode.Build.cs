@@ -8,9 +8,14 @@ public class xplode : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "PhysicsCore" });
+		//PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "PhysicsCore", "SmoothSyncPlugin" });
 
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "PhysicsCore"});
+		
+		//PublicIncludePaths.AddRange(new string[] {"SmoothSyncPlugin/Public", "SmoothSyncPlugin/Private" });
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
+
+                
 
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
