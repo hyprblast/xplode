@@ -47,6 +47,9 @@ public:
 	UPROPERTY(Replicated)
 		bool bIsAddingThrowPower;
 
+	//UPROPERTY(EditDefaultsOnly, Category = "Components")
+	//	UPhysicsHandleComponent* PhysicsHandle;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 		UCameraComponent* CameraComp;
 

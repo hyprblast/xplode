@@ -31,6 +31,7 @@
 #include "FightDamageType.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "AIController.h"
+//#include "PhysicsEngine/PhysicsHandleComponent.h"
 
 
 
@@ -127,6 +128,7 @@ AxBaseCharacter::AxBaseCharacter()
 	AIPerceptionComp->SetDominantSense(SightConfig->GetSenseImplementation());
 
 
+	/*PhysicsHandle = CreateDefaultSubobject<UPhysicsHandleComponent>(TEXT("PhysicsHandle"));*/
 
 	/*GetCharacterMovement()->PushForceFactor =0;
 	GetCharacterMovement()->InitialPushForceFactor = 0;
@@ -360,6 +362,8 @@ void AxBaseCharacter::BeginPlay()
 
 	if (HasAuthority())
 	{
+	/*	PhysicsHandle->SetActive(false);*/
+
 		// Create unique id for this player
 		PlayerId = FGuid::NewGuid();
 
@@ -455,6 +459,13 @@ void AxBaseCharacter::Tick(float DeltaTime)
 	{
 		if (!bIsDead)
 		{
+			/*if (PhysicsHandle->IsActive())
+			{
+				FTransform TPVSocketTransform = GetMesh()->GetSocketTransform(TEXT("hand_socket"), RTS_World);
+				PhysicsHandle->SetTargetLocationAndRotation(TPVSocketTransform.GetLocation(), TPVSocketTransform.GetRotation().Rotator());
+			}*/
+			
+			
 			if (bIsAddingThrowPower && ThrowPower < MaxThrowPower)
 			{
 				ThrowPower += 500;
@@ -562,9 +573,15 @@ void AxBaseCharacter::AttachBallToTPVMesh()
 	FName SocketName = TEXT("hand_socket");
 	USkeletalMeshComponent* TPVSkeletalMesh = GetMesh();
 
-	FAttachmentTransformRules TransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::KeepWorld, true);
-	FTransform TPVSocketTransform = TPVSkeletalMesh->GetSocketTransform(SocketName, RTS_World);
+	
+	
 
+
+	FAttachmentTransformRules TransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, true);
+	FTransform TPVSocketTransform = TPVSkeletalMesh->GetSocketTransform(SocketName, RTS_World);
+	/*PhysicsHandle->SetActive(true);
+	PhysicsHandle->GrabComponentAtLocationWithRotation(TPVBall->SphereComp, SocketName, TPVSocketTransform.GetLocation(), TPVSocketTransform.GetRotation().Rotator());
+	*/
 	TPVBall->AttachToComponent(TPVSkeletalMesh, TransformRules, SocketName);
 	/*TPVBall->StartTimer();*/
 
@@ -1141,6 +1158,8 @@ void AxBaseCharacter::MulticastGettingPunchedLogic_Implementation(uint8 GettingP
 void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraFowardVector, bool bJustDropBall)
 {
 	TPVBall->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+	/*PhysicsHandle->ReleaseComponent();*/
+	/*PhysicsHandle->SetActive(false);*/
 	TPVBall->Shoot(CameraFowardVector * (!bJustDropBall ? FMath::Clamp(ThrowPower, MinThrowPower, MaxThrowPower) : 5000.f));
 	UnSubscribeToBallWarnEvent();
 	UnSubscribeToBallExplodeEvent();
@@ -1152,7 +1171,7 @@ void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraFowardVector,
 	FTimerHandle TimerHandle;
 
 	TimerDel.BindUFunction(this, FName("ResetBoolFlags"), true, false);
-	GetWorldTimerManager().SetTimer(TimerHandle, TimerDel, 1.f, false);
+	GetWorldTimerManager().SetTimer(TimerHandle, TimerDel, .3f, false);
 
 }
 

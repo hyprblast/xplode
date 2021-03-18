@@ -155,6 +155,9 @@ protected:
 	UFUNCTION(NetMulticast, Unreliable)
 		void MulticastPlayBallHitWallFX();
 
+	UPROPERTY(Replicated)
+		bool bSmoothingOn = true;
+
 private:
 	UPROPERTY()
 		FTimerHandle ExplodeLevelIncrementTimerHandle;

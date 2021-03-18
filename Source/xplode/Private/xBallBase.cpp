@@ -24,10 +24,10 @@ AxBallBase::AxBallBase()
 	SphereComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Sphere"));
 	SphereComp->SetCollisionObjectType(XBALLOBJECT_CHANNEL);
 	SphereComp->SetCollisionProfileName(TEXT("xBallCollision"));
-	SphereComp->SetGenerateOverlapEvents(false);
+	SphereComp->SetGenerateOverlapEvents(true);
 	SphereComp->CastShadow = false;
 	/*SphereComp->SetLinearDamping(0);*/
-	SphereComp->SetSimulatePhysics(false);
+	SphereComp->SetSimulatePhysics(true);
 	SphereComp->SetNotifyRigidBodyCollision(true);
 	SphereComp->bReplicatePhysicsToAutonomousProxy = true;
 	
@@ -68,9 +68,9 @@ void AxBallBase::CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, c
 			OtherActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()) &&
 			!IxBaseCharacterInterface::Execute_GetPlayerHasBall(OtherActor))
 		{
-			
-			IxBaseCharacterInterface::Execute_PickupBall(OtherActor, this);
 			RemoveOverlapAndPhysics();
+			IxBaseCharacterInterface::Execute_PickupBall(OtherActor, this);
+			
 			//Destroy();
 		}
 		else if (OtherActor->ActorHasTag("Goal"))
@@ -309,13 +309,17 @@ void AxBallBase::AddOverlapAndPhysics()
 	SphereComp->SetCollisionProfileName(TEXT("xBallCollision"));
 	SphereComp->SetGenerateOverlapEvents(true);
 	SphereComp->SetSimulatePhysics(true);
+	SphereComp->WakeAllRigidBodies();
+	bSmoothingOn = true;
 }
 
 void AxBallBase::RemoveOverlapAndPhysics()
 {
+	bSmoothingOn = false;
 	SphereComp->SetSimulatePhysics(false);
 	SphereComp->SetGenerateOverlapEvents(false);
 	SphereComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	
 }
 
 void AxBallBase::SelfDestroy()
@@ -356,39 +360,44 @@ void AxBallBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	
-	if (HasAuthority())
+	if (bSmoothingOn)
 	{
-		ServerLocation = GetActorLocation();
-		ServerRotation = GetActorQuat();
-		ServerVelocity = GetVelocity();
-		ServerAngularVelocity = SphereComp->GetPhysicsAngularVelocityInDegrees();
+		if (HasAuthority())
+		{
+			ServerLocation = GetActorLocation();
+			ServerRotation = GetActorQuat();
+			ServerVelocity = GetVelocity();
+			ServerAngularVelocity = SphereComp->GetPhysicsAngularVelocityInDegrees();
+		}
+		else
+		{
+			if (bInterpLocation && GetActorLocation() != ServerLocation)
+			{
+				SetActorLocation(FMath::Lerp(GetActorLocation(), ServerLocation, InterpRate * DeltaTime), false, 0, ETeleportType::TeleportPhysics);
+				bInterpLocation = false;
+			}
+
+			if (bInterpRotation && GetActorQuat() != ServerRotation)
+			{
+				SetActorRotation(FMath::Lerp(GetActorQuat(), ServerRotation, InterpRate * DeltaTime), ETeleportType::TeleportPhysics);
+				bInterpRotation = false;
+			}
+
+			if (bInterpVelocity && SphereComp->GetPhysicsLinearVelocity() != ServerVelocity)
+			{
+				SphereComp->SetPhysicsLinearVelocity(ServerVelocity);
+				bInterpVelocity = false;
+			}
+
+			if (bInterpAngularVelocity && SphereComp->GetPhysicsAngularVelocityInDegrees() != ServerAngularVelocity)
+			{
+				SphereComp->SetPhysicsAngularVelocityInDegrees(ServerAngularVelocity);
+				bInterpAngularVelocity = false;
+			}
+		}
 	}
-	else
-	{
-		if (bInterpLocation && GetActorLocation() != ServerLocation)
-		{
-			SetActorLocation(FMath::Lerp(GetActorLocation(), ServerLocation, InterpRate * DeltaTime), false, 0, ETeleportType::TeleportPhysics);
-			bInterpLocation = false;
-		}
 
-		if (bInterpRotation && GetActorQuat() != ServerRotation)
-		{
-			SetActorRotation(FMath::Lerp(GetActorQuat(), ServerRotation, InterpRate * DeltaTime), ETeleportType::TeleportPhysics);
-			bInterpRotation = false;
-		}
-
-		if (bInterpVelocity && SphereComp->GetPhysicsLinearVelocity() != ServerVelocity)
-		{
-			SphereComp->SetPhysicsLinearVelocity(ServerVelocity);
-			bInterpVelocity = false;
-		}
-
-		if (bInterpAngularVelocity && SphereComp->GetPhysicsAngularVelocityInDegrees() != ServerAngularVelocity)
-		{
-			SphereComp->SetPhysicsAngularVelocityInDegrees(ServerAngularVelocity);
-			bInterpAngularVelocity = false;
-		}
-	}
+	
 
 }
 
@@ -403,5 +412,6 @@ void AxBallBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 	DOREPLIFETIME(AxBallBase, ServerRotation);
 	DOREPLIFETIME(AxBallBase, ServerVelocity);
 	DOREPLIFETIME(AxBallBase, ServerAngularVelocity);
+	DOREPLIFETIME(AxBallBase, bSmoothingOn);
 }
 
