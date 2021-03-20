@@ -36,6 +36,12 @@ public:
 		bool GetPlayerIsDead();
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerIsSliding();
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerIsKO();
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		uint8 AIBlock();
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)

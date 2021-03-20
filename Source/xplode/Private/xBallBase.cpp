@@ -65,8 +65,10 @@ void AxBallBase::CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, c
 	if (HasAuthority() && IsValid(OtherActor) && !bScored)
 	{
 		if (OtherActor->ActorHasTag(FName("Player")) &&
-			OtherActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()) &&
-			!IxBaseCharacterInterface::Execute_GetPlayerHasBall(OtherActor))
+			OtherActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()) 
+			&& !IxBaseCharacterInterface::Execute_GetPlayerHasBall(OtherActor)
+			&& !IxBaseCharacterInterface::Execute_GetPlayerIsDead(OtherActor)
+			&& !IxBaseCharacterInterface::Execute_GetPlayerIsKO(OtherActor))
 		{
 			RemoveOverlapAndPhysics();
 			IxBaseCharacterInterface::Execute_PickupBall(OtherActor, this);

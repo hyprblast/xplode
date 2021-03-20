@@ -31,6 +31,7 @@
 #include "FightDamageType.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "AIController.h"
+#include <Animation/AnimMontage.h>
 //#include "PhysicsEngine/PhysicsHandleComponent.h"
 
 
@@ -141,6 +142,7 @@ AxBaseCharacter::AxBaseCharacter()
 	bReplicates = true;
 	SetReplicateMovement(true);
 
+
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 
 
@@ -157,12 +159,13 @@ void AxBaseCharacter::CallOnOverlap(class UPrimitiveComponent* OverlappedCompone
 		&& OtherActor->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass())
 		&& IxBaseCharacterInterface::Execute_GetPlayerType(OtherActor) != PlayerTypeName
 		&& !IxBaseCharacterInterface::Execute_GetPlayerIsDead(OtherActor)
+		&& !IxBaseCharacterInterface::Execute_GetPlayerIsKO(OtherActor)
 		&& bIsFighting)
 	{
 
 		int32 ShouldAIBlock = FMath::RandRange(1, 50);
 
-		if (IxBaseCharacterInterface::Execute_GetPlayerIsBlocking(OtherActor) || (OtherActor->ActorHasTag("Bot") && ShouldAIBlock > 30 && ShouldAIBlock % 2 != 0))
+		if (!bIsSliding && (IxBaseCharacterInterface::Execute_GetPlayerIsBlocking(OtherActor) || (OtherActor->ActorHasTag("Bot") && ShouldAIBlock > 30 && ShouldAIBlock % 2 != 0)))
 		{
 			if (OtherActor->ActorHasTag("Bot"))
 			{
@@ -202,7 +205,15 @@ void AxBaseCharacter::CallOnOverlap(class UPrimitiveComponent* OverlappedCompone
 
 		UFightDamageType* FightDamageType = NewObject<UFightDamageType>();
 
-		IxBaseCharacterInterface::Execute_PushPlayer(OtherActor, FVector(GetActorForwardVector().X * FightDamageType->DamageImpulse, GetActorForwardVector().Y * FightDamageType->DamageImpulse, 100.f), true, true);
+		if (!bIsSliding)
+		{
+			IxBaseCharacterInterface::Execute_PushPlayer(OtherActor, FVector(GetActorForwardVector().X * FightDamageType->DamageImpulse, GetActorForwardVector().Y * FightDamageType->DamageImpulse, 100.f), true, true);
+		}
+		else
+		{
+			IxBaseCharacterInterface::Execute_PushPlayer(OtherActor, FVector(GetActorForwardVector().X * FightDamageType->DamageImpulse * 2, GetActorForwardVector().Y * FightDamageType->DamageImpulse * 2, 200.f), true, true);
+		}
+
 
 		UGameplayStatics::ApplyPointDamage(OtherActor, FightDamageType->Damage, CameraComp->GetForwardVector(), SweepResult, GetOwner()->GetInstigatorController(), this, FightDamageType->StaticClass());
 
@@ -229,6 +240,11 @@ bool AxBaseCharacter::GetPlayerIsFighting_Implementation()
 	return bIsFighting;
 }
 
+bool AxBaseCharacter::GetPlayerIsSliding_Implementation()
+{
+	return bIsSliding;
+}
+
 bool AxBaseCharacter::GetPlayerIsAutoFighting_Implementation()
 {
 	return bIsAutoFight;
@@ -245,6 +261,11 @@ bool AxBaseCharacter::GetPlayerHasBall_Implementation()
 }
 
 
+
+bool AxBaseCharacter::GetPlayerIsKO_Implementation()
+{
+	return bIsKO;
+}
 
 bool AxBaseCharacter::GetPlayerIsDead_Implementation()
 {
@@ -288,7 +309,11 @@ uint8 AxBaseCharacter::AIBlock_Implementation()
 
 int32 AxBaseCharacter::SetPlayerIsFighting_Implementation(bool bPlayerIsFighting)
 {
-	bIsFighting = false;
+	bIsFighting = bPlayerIsFighting;
+	if (bIsSliding)
+	{
+		bIsSliding = false;
+	}
 	return 1;
 }
 
@@ -303,14 +328,10 @@ int32 AxBaseCharacter::SetPlayerIsGettingHit_Implementation(bool bPlayerIsGettin
 {
 	if (!ActorHasTag("Bot"))
 	{
-		bIsTakingHit = bPlayerIsGettingHit;
+		bPlayerIsGettingHit = bPlayerIsGettingHit;
 	}
-	/*else
-	{
-		int32 Rand = FMath::RandRange(1.f, 5.f);
-		GetWorldTimerManager().SetTimer(
-			HasBallTimerHandle, this, &AxBaseCharacter::AIUnsetIsGettingHit, Rand, false);
-	}*/
+
+	bIsKO = false;
 
 	return 1;
 }
@@ -326,7 +347,6 @@ int32 AxBaseCharacter::ThrowBall_Implementation()
 int32 AxBaseCharacter::PickupBall_Implementation(AxBallBase* Ball)
 {
 	TPVBall = Ball;
-	ResetBoolFlags(true, true);
 	bHasBall = true;
 	MulticastPlayTPVPickupAnimation();
 	return 1;
@@ -362,9 +382,10 @@ void AxBaseCharacter::BeginPlay()
 
 	if (HasAuthority())
 	{
-	/*	PhysicsHandle->SetActive(false);*/
 
-		// Create unique id for this player
+		/*	PhysicsHandle->SetActive(false);*/
+
+			// Create unique id for this player
 		PlayerId = FGuid::NewGuid();
 
 		OnTakeAnyDamage.AddDynamic(this, &AxBaseCharacter::HandleTakeAnyDamage);
@@ -421,17 +442,24 @@ void AxBaseCharacter::BeginPlay()
 void AxBaseCharacter::HandleTakeAnyDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser)
 {
 
-	if (!bIsDead && IsValid(DamageType) && DamageType->GetClass()->ImplementsInterface(UxBaseDamageTypeInterface::StaticClass()))
+	if (IsValid(DamageType) && DamageType->GetClass()->ImplementsInterface(UxBaseDamageTypeInterface::StaticClass()))
 	{
 		FName DamageTypeName = IxBaseDamageTypeInterface::Execute_GetDamageTypeName(DamageType);
 
 		PlayerHittingMe = IxBaseCharacterInterface::Execute_GetPlayerId(DamageCauser);
 
+		bool isSlide = IxBaseCharacterInterface::Execute_GetPlayerIsSliding(DamageCauser);
+		bIsKO = isSlide;
+
+
 		if (DamageTypeName == TEXT("Fight"))
 		{
 			int32 GettingPunchedMoveIndex = FMath::RandRange(0, GettingPunchedMontages.Num() - 1);
-			ResetBoolFlags(false, false);
-			MulticastGettingPunchedLogic(GettingPunchedMoveIndex);
+
+
+			bIsTakingHit = true;
+
+			MulticastGettingPunchedLogic(GettingPunchedMoveIndex, isSlide);
 
 			if (bHasBall)
 			{
@@ -464,8 +492,8 @@ void AxBaseCharacter::Tick(float DeltaTime)
 				FTransform TPVSocketTransform = GetMesh()->GetSocketTransform(TEXT("hand_socket"), RTS_World);
 				PhysicsHandle->SetTargetLocationAndRotation(TPVSocketTransform.GetLocation(), TPVSocketTransform.GetRotation().Rotator());
 			}*/
-			
-			
+
+
 			if (bIsAddingThrowPower && ThrowPower < MaxThrowPower)
 			{
 				ThrowPower += 500;
@@ -478,14 +506,17 @@ void AxBaseCharacter::Tick(float DeltaTime)
 			if (Health <= 0 && !bIsDead)
 			{
 				bIsDead = true;
-				MulticastKilled();
+				if (!bIsKO)
+				{
+					MulticastKilled();
+				}
 			}
 			if (ActorHasTag("Bot"))
 			{
 				/*Setting attack mode for bot on the server
 				2 attack conditions - 1: Autofight (this happens when is getting hit or when is going after the ball, this last one is set on BT) and 2: it has ball possession.*/
 
-				if (bIsAutoFight || bHasBall)
+				if (!bIsKO && (bIsAutoFight || bHasBall))
 				{
 					if (!bIsAttackMode)
 					{
@@ -521,10 +552,10 @@ void AxBaseCharacter::Tick(float DeltaTime)
 
 void AxBaseCharacter::MoveFoward(float Value)
 {
-	if (AreFightingRelatedMontagesPlaying())
+	/*if (AreFightingRelatedMontagesPlaying())
 	{
 		return;
-	}
+	}*/
 
 	// find out which way is forward
 	const FRotator Rotation = Controller->GetControlRotation();
@@ -538,10 +569,10 @@ void AxBaseCharacter::MoveFoward(float Value)
 
 void AxBaseCharacter::MoveRight(float Value)
 {
-	if (AreFightingRelatedMontagesPlaying())
+	/*if (AreFightingRelatedMontagesPlaying())
 	{
 		return;
-	}
+	}*/
 
 	// find out which way is right
 	const FRotator Rotation = Controller->GetControlRotation();
@@ -573,8 +604,8 @@ void AxBaseCharacter::AttachBallToTPVMesh()
 	FName SocketName = TEXT("hand_socket");
 	USkeletalMeshComponent* TPVSkeletalMesh = GetMesh();
 
-	
-	
+
+
 
 
 	FAttachmentTransformRules TransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, true);
@@ -621,10 +652,10 @@ void AxBaseCharacter::LoadDynamicRefs()
 
 	FightAnimMontages.Add(PunchLeftMontage);
 	FightAnimMontages.Add(PunchRightMontage);
-	FightAnimMontages.Add(OverhandLeftMontage);
 	FightAnimMontages.Add(OverhandRightMontage);
-	/*FightAnimMontages.Add(UpperCutLeftMontage);
-	FightAnimMontages.Add(UpperCutRightMontage);*/
+	FightAnimMontages.Add(OverhandRightMontage);
+	FightAnimMontages.Add(UpperCutLeftMontage);
+	FightAnimMontages.Add(UpperCutRightMontage);
 	/*FightAnimMontages.Add(RotatingPunchMontage);*/
 
 
@@ -638,6 +669,8 @@ void AxBaseCharacter::LoadDynamicRefs()
 	GettingPunchedMontages.Add(GettingPunchedLeftMontage);
 	GettingPunchedMontages.Add(GettingPunchedRightMontage);
 
+	GettingHitFromSlideMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/GettingHitFromSlideAnimMontage.GettingHitFromSlideAnimMontage'")));
+	SlideMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/SlideAnimMontage.SlideAnimMontage'")));
 	BlockMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/BlockAnimMontage.BlockAnimMontage'")));
 	ThrowPowerIncreaseSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/SciFiWeaponsCyberpunkArsenal/cues/Support_Material/Charge/SCIMisc_Charge_Weapon_15_Cue.SCIMisc_Charge_Weapon_15_Cue'")));
 	WarningSoundFx = Cast<USoundCue>(StaticLoadObject(USoundCue::StaticClass(), NULL, TEXT("SoundCue'/Game/SciFiWeaponsCyberpunkArsenal/cues/Support_Material/Targeting/BEEP_Targeting_Loop_04_Cue.BEEP_Targeting_Loop_04_Cue'")));
@@ -725,6 +758,16 @@ void AxBaseCharacter::Kick()
 
 }
 
+void AxBaseCharacter::Slide()
+{
+	if (!AreFightingRelatedMontagesPlaying())
+	{
+		ServerSlide();
+		SlideLogic();
+	}
+
+}
+
 void AxBaseCharacter::Fight()
 {
 	if (!AreFightingRelatedMontagesPlaying())
@@ -752,10 +795,126 @@ void AxBaseCharacter::Block()
 bool AxBaseCharacter::AreFightingRelatedMontagesPlaying()
 {
 	return GetMesh()->GetAnimInstance()->Montage_IsPlaying(BlockMontage)
+		|| GetMesh()->GetAnimInstance()->Montage_IsPlaying(SlideMontage)
+		|| GetMesh()->GetAnimInstance()->Montage_IsPlaying(GettingHitFromSlideMontage)
 		|| GetMesh()->GetAnimInstance()->Montage_IsPlaying(GettingPunchedMontages[0]) || GetMesh()->GetAnimInstance()->Montage_IsPlaying(GettingPunchedMontages[1])
 		|| GetMesh()->GetAnimInstance()->Montage_IsPlaying(FightAnimMontages[0]) || GetMesh()->GetAnimInstance()->Montage_IsPlaying(FightAnimMontages[1])
 		|| GetMesh()->GetAnimInstance()->Montage_IsPlaying(FightAnimMontages[2]) || GetMesh()->GetAnimInstance()->Montage_IsPlaying(FightAnimMontages[3])
+		|| GetMesh()->GetAnimInstance()->Montage_IsPlaying(FightAnimMontages[4]) || GetMesh()->GetAnimInstance()->Montage_IsPlaying(FightAnimMontages[5])
 		|| GetMesh()->GetAnimInstance()->Montage_IsPlaying(FightKickAnimMontages[0]);
+}
+
+void AxBaseCharacter::BlockMontageOnAnimationBlendOut(UAnimMontage* animMontage, bool bInterrupted)
+{
+	if (bInterrupted)
+	{
+		bIsBlocking = false;
+	}
+
+}
+
+void AxBaseCharacter::BlockMontageOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted)
+{
+	if (bInterrupted)
+	{
+		bIsBlocking = false;
+	}
+}
+
+void AxBaseCharacter::SlideMontageOnAnimationBlendOut(UAnimMontage* animMontage, bool bInterrupted)
+{
+	if (bInterrupted)
+	{
+		bIsSliding = false;
+	}
+}
+
+void AxBaseCharacter::SlideMontageOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted)
+{
+	if (bInterrupted)
+	{
+		bIsSliding = false;
+	}
+}
+
+void AxBaseCharacter::GettingHitFromSlideMontageOnAnimationBlendOut(UAnimMontage* animMontage, bool bInterrupted)
+{
+	if (bInterrupted)
+	{
+		bIsKO = false;
+	}
+}
+
+void AxBaseCharacter::GettingHitFromSlideMontageOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted)
+{
+	if (bInterrupted)
+	{
+		bIsKO = false;
+	}
+}
+
+void AxBaseCharacter::GettingPunchedMontageOnAnimationBlendOut(UAnimMontage* animMontage, bool bInterrupted)
+{
+	if (bInterrupted)
+	{
+		bIsTakingHit = false;
+	}
+}
+
+void AxBaseCharacter::GettingPunchedMontageOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted)
+{
+	if (bInterrupted)
+	{
+		bIsTakingHit = false;
+	}
+}
+
+void AxBaseCharacter::FightMontageOnAnimationBlendOut(UAnimMontage* animMontage, bool bInterrupted)
+{
+	if (bInterrupted)
+	{
+		bIsFighting = false;
+	}
+}
+
+void AxBaseCharacter::FightMontageOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted)
+{
+	if (bInterrupted)
+	{
+		bIsFighting = false;
+	}
+}
+
+void AxBaseCharacter::ThrowBallMontegaOnAnimationBlendOut(UAnimMontage* animMontage, bool bInterrupted)
+{
+	if (bInterrupted)
+	{
+		bHasBall = false;
+	}
+}
+
+void AxBaseCharacter::ThrowBallMontegaOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted)
+{
+	if (bInterrupted)
+	{
+		bHasBall = false;
+	}
+}
+
+void AxBaseCharacter::PickupBallMontageOnAnimationBlendOut(UAnimMontage* animMontage, bool bInterrupted)
+{
+	if (bInterrupted)
+	{
+		bHasBall = true;
+	}
+}
+
+void AxBaseCharacter::PickupBallMontageOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted)
+{
+	if (bInterrupted)
+	{
+		bHasBall = true;
+	}
 }
 
 void AxBaseCharacter::BlockLogic()
@@ -764,6 +923,13 @@ void AxBaseCharacter::BlockLogic()
 	{
 		bIsBlocking = true;
 		GetMesh()->GetAnimInstance()->Montage_Play(BlockMontage);
+		FOnMontageEnded BlendOutDelegate;
+		BlendOutDelegate.BindUObject(this, &AxBaseCharacter::BlockMontageOnAnimationBlendOut);
+		GetMesh()->GetAnimInstance()->Montage_SetBlendingOutDelegate(BlendOutDelegate, BlockMontage);
+
+		FOnMontageEnded CompleteDelegate;
+		CompleteDelegate.BindUObject(this, &AxBaseCharacter::BlockMontageOnAnimationEnd);
+		GetMesh()->GetAnimInstance()->Montage_SetEndDelegate(CompleteDelegate, BlockMontage);
 	}
 }
 
@@ -889,38 +1055,59 @@ void AxBaseCharacter::Die()
 
 void AxBaseCharacter::FightLogic(uint8 FightMoveIndex)
 {
-	if (!AreFightingRelatedMontagesPlaying())
-	{
-		FVector FowardVector = GetActorForwardVector();
+	GetMesh()->GetAnimInstance()->Montage_Play(FightAnimMontages[FightMoveIndex]);
 
-	/*	if (!GetCharacterMovement()->IsFalling())
-		{
-			PushPlayer(FVector(FowardVector.X * 500.f, FowardVector.Y * 500.f, 0), false, false);
-		}*/
+	FOnMontageEnded BlendOutDelegate;
+	BlendOutDelegate.BindUObject(this, &AxBaseCharacter::FightMontageOnAnimationBlendOut);
+	GetMesh()->GetAnimInstance()->Montage_SetBlendingOutDelegate(BlendOutDelegate, FightAnimMontages[FightMoveIndex]);
 
-		GetMesh()->GetAnimInstance()->Montage_Play(FightAnimMontages[FightMoveIndex]);
-		
-	}
+	FOnMontageEnded CompleteDelegate;
+	CompleteDelegate.BindUObject(this, &AxBaseCharacter::FightMontageOnAnimationEnd);
+	GetMesh()->GetAnimInstance()->Montage_SetEndDelegate(CompleteDelegate, FightAnimMontages[FightMoveIndex]);
 }
 
 void AxBaseCharacter::KickLogic(uint8 FightMoveIndex)
 {
 
-	if (!AreFightingRelatedMontagesPlaying())
+	if (!GetCharacterMovement()->IsFalling())
 	{
 		FVector FowardVector = GetActorForwardVector();
-
-		if (!GetCharacterMovement()->IsFalling())
-		{
-			PushPlayer(FVector(FowardVector.X * 500.f, FowardVector.Y * 500.f, 0), false, false);
-		}
-
-		GetMesh()->GetAnimInstance()->Montage_Play(FightKickAnimMontages[FightMoveIndex]);
-		
+		PushPlayer(FVector(FowardVector.X * 500.f, FowardVector.Y * 500.f, 0), false, false);
 	}
+
+	GetMesh()->GetAnimInstance()->Montage_Play(FightKickAnimMontages[FightMoveIndex]);
+
+	FOnMontageEnded BlendOutDelegate;
+	BlendOutDelegate.BindUObject(this, &AxBaseCharacter::FightMontageOnAnimationBlendOut);
+	GetMesh()->GetAnimInstance()->Montage_SetBlendingOutDelegate(BlendOutDelegate, FightKickAnimMontages[FightMoveIndex]);
+
+	FOnMontageEnded CompleteDelegate;
+	CompleteDelegate.BindUObject(this, &AxBaseCharacter::FightMontageOnAnimationEnd);
+	GetMesh()->GetAnimInstance()->Montage_SetEndDelegate(CompleteDelegate, FightKickAnimMontages[FightMoveIndex]);
+
+
 
 }
 
+
+void AxBaseCharacter::SlideLogic()
+{
+
+	GetMesh()->GetAnimInstance()->Montage_Play(SlideMontage);
+	FOnMontageEnded BlendOutDelegate;
+	BlendOutDelegate.BindUObject(this, &AxBaseCharacter::SlideMontageOnAnimationBlendOut);
+	GetMesh()->GetAnimInstance()->Montage_SetBlendingOutDelegate(BlendOutDelegate, SlideMontage);
+
+	FOnMontageEnded CompleteDelegate;
+	CompleteDelegate.BindUObject(this, &AxBaseCharacter::SlideMontageOnAnimationEnd);
+	GetMesh()->GetAnimInstance()->Montage_SetEndDelegate(CompleteDelegate, SlideMontage);
+
+	if (!GetCharacterMovement()->IsFalling())
+	{
+		FVector FowardVector = GetActorForwardVector();
+		PushPlayer(FVector(FowardVector.X * 700.f, FowardVector.Y * 700.f, 300.f), true, false);
+	}
+}
 
 void AxBaseCharacter::AITraceAndAttack()
 {
@@ -966,32 +1153,16 @@ void AxBaseCharacter::AITraceAndAttack()
 	}
 }
 
-void AxBaseCharacter::ResetBoolFlags(bool ResetBallPossession, bool ResetAtackMode)
+
+void AxBaseCharacter::SetHasBallFalse()
 {
-	bIsFighting = false;
-	bIsBlocking = false;
-	bIsThrowing = false;
-	bIsAddingThrowPower = false;
-
-
-
-	if (ResetAtackMode)
-	{
-		bIsAttackMode = false;
-		bIsAutoFight = false;
-		bIsTakingHit = false;
-	}
-
-	if (ResetBallPossession)
-	{
-		bHasBall = false;
-	}
-
+	bHasBall = false;
 }
 
 void AxBaseCharacter::AIDisableAttackMode()
 {
-	ResetBoolFlags(false, true);
+	bIsAttackMode = false;
+	bIsAutoFight = false;
 	GetWorld()->GetTimerManager().ClearTimer(AIDisableAttackModeTimerHandle);
 }
 
@@ -1076,7 +1247,6 @@ bool AxBaseCharacter::ServerPlayTPVThrowBallAnim_Validate()
 
 void AxBaseCharacter::ServerFight_Implementation(bool bIsKick, uint8 FightMoveIndex)
 {
-	ResetBoolFlags(false, false);
 	bIsFighting = true;
 	MulticastFight(bIsKick, FightMoveIndex);
 
@@ -1088,20 +1258,31 @@ bool AxBaseCharacter::ServerFight_Validate(bool bIsKick, uint8 FightMoveIndex)
 	return true;
 }
 
+void AxBaseCharacter::ServerSlide_Implementation()
+{
+	bIsFighting = true;
+	bIsSliding = true;
+	MulticastSlide();
+}
+
+bool AxBaseCharacter::ServerSlide_Validate()
+{
+	return true;
+}
+
 void AxBaseCharacter::MulticastPlayTPVPickupAnimation_Implementation()
 {
 	if (IsValid(PickupBallMontage) && !GetMesh()->GetAnimInstance()->Montage_IsPlaying(PickupBallMontage))
 	{
 		GetMesh()->GetAnimInstance()->Montage_Play(PickupBallMontage);
 
-		/*	if (IsLocallyControlled())
-			{
-				SkeletalMeshComp->GetAnimInstance()->Montage_Play(PickupBallMontage);
-			}
-			else
-			{
-				GetMesh()->GetAnimInstance()->Montage_Play(PickupBallMontage);
-			}*/
+		FOnMontageEnded BlendOutDelegate;
+		BlendOutDelegate.BindUObject(this, &AxBaseCharacter::PickupBallMontageOnAnimationBlendOut);
+		GetMesh()->GetAnimInstance()->Montage_SetBlendingOutDelegate(BlendOutDelegate, PickupBallMontage);
+
+		FOnMontageEnded CompleteDelegate;
+		CompleteDelegate.BindUObject(this, &AxBaseCharacter::PickupBallMontageOnAnimationEnd);
+		GetMesh()->GetAnimInstance()->Montage_SetEndDelegate(CompleteDelegate, PickupBallMontage);
 	}
 }
 
@@ -1109,7 +1290,7 @@ void AxBaseCharacter::MulticastPlayTPVPickupAnimation_Implementation()
 
 void AxBaseCharacter::ServerBlock_Implementation()
 {
-	ResetBoolFlags(false, false);
+	bIsBlocking = true;
 	MulticastBlock();
 }
 
@@ -1144,15 +1325,47 @@ void AxBaseCharacter::MulticastFight_Implementation(bool bIsKick, uint8 FightMov
 	}
 
 }
-void AxBaseCharacter::MulticastGettingPunchedLogic_Implementation(uint8 GettingPunchedMoveIndex)
-{
-	if (!IsValid(LastPlayedGettingPunchedMontage) || !GetMesh()->GetAnimInstance()->Montage_IsPlaying(GettingPunchedMontages[GettingPunchedMoveIndex]))
-	{
-		bIsTakingHit = true;
 
-		GetMesh()->GetAnimInstance()->Montage_Play(GettingPunchedMontages[GettingPunchedMoveIndex]);
-		LastPlayedGettingPunchedMontage = GettingPunchedMontages[GettingPunchedMoveIndex];
+void AxBaseCharacter::MulticastSlide_Implementation()
+{
+	if (!IsLocallyControlled() || bIsAutoFight)
+	{
+		SlideLogic();
 	}
+}
+
+void AxBaseCharacter::MulticastGettingPunchedLogic_Implementation(uint8 GettingPunchedMoveIndex, bool isSlide)
+{
+	
+	if (!isSlide && !GetMesh()->GetAnimInstance()->Montage_IsPlaying(GettingPunchedMontages[GettingPunchedMoveIndex]))
+	{
+		GetMesh()->GetAnimInstance()->Montage_Play(GettingPunchedMontages[GettingPunchedMoveIndex]);
+
+		FOnMontageEnded BlendOutDelegate;
+		BlendOutDelegate.BindUObject(this, &AxBaseCharacter::GettingPunchedMontageOnAnimationBlendOut);
+		GetMesh()->GetAnimInstance()->Montage_SetBlendingOutDelegate(BlendOutDelegate, GettingPunchedMontages[GettingPunchedMoveIndex]);
+
+		FOnMontageEnded CompleteDelegate;
+		CompleteDelegate.BindUObject(this, &AxBaseCharacter::GettingPunchedMontageOnAnimationEnd);
+		GetMesh()->GetAnimInstance()->Montage_SetEndDelegate(CompleteDelegate, GettingPunchedMontages[GettingPunchedMoveIndex]);
+	}
+	else if (isSlide && !GetMesh()->GetAnimInstance()->Montage_IsPlaying(GettingHitFromSlideMontage))
+	{
+		GetMesh()->GetAnimInstance()->Montage_Play(GettingHitFromSlideMontage);
+		
+		FOnMontageEnded BlendOutDelegate;
+		BlendOutDelegate.BindUObject(this, &AxBaseCharacter::GettingHitFromSlideMontageOnAnimationBlendOut);
+		GetMesh()->GetAnimInstance()->Montage_SetBlendingOutDelegate(BlendOutDelegate, GettingHitFromSlideMontage);
+
+		FOnMontageEnded CompleteDelegate;
+		CompleteDelegate.BindUObject(this, &AxBaseCharacter::GettingHitFromSlideMontageOnAnimationEnd);
+		GetMesh()->GetAnimInstance()->Montage_SetEndDelegate(CompleteDelegate, GettingHitFromSlideMontage);
+	
+	}
+	
+	
+
+	
 }
 
 void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraFowardVector, bool bJustDropBall)
@@ -1165,13 +1378,10 @@ void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraFowardVector,
 	UnSubscribeToBallExplodeEvent();
 	ClientStopPlayBallWarn();
 	ThrowPower = 0;
-	//ResetBoolFlags(true, false);
 
-	FTimerDelegate TimerDel;
 	FTimerHandle TimerHandle;
-
-	TimerDel.BindUFunction(this, FName("ResetBoolFlags"), true, false);
-	GetWorldTimerManager().SetTimer(TimerHandle, TimerDel, .3f, false);
+	GetWorldTimerManager().SetTimer(
+		TimerHandle, this, &AxBaseCharacter::SetHasBallFalse, .3f, false);
 
 }
 
@@ -1180,22 +1390,6 @@ bool AxBaseCharacter::ServerThrowBall_Validate(FVector CameraFowardVector, bool 
 	return true;
 }
 
-void AxBaseCharacter::ClientThrowBall_Implementation(FVector CameraFowardVector, bool bJustDropBall)
-{
-	TPVBall->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-	TPVBall->Shoot(CameraFowardVector * (!bJustDropBall ? FMath::Clamp(ThrowPower, MinThrowPower, MaxThrowPower) : 5000.f));
-	UnSubscribeToBallWarnEvent();
-	UnSubscribeToBallExplodeEvent();
-	ClientStopPlayBallWarn();
-	ThrowPower = 0;
-	//ResetBoolFlags(true, false);
-
-	FTimerDelegate TimerDel;
-	FTimerHandle TimerHandle;
-
-	TimerDel.BindUFunction(this, FName("ResetBoolFlags"), true, false);
-	GetWorldTimerManager().SetTimer(TimerHandle, TimerDel, 1.f, false);
-}
 
 void AxBaseCharacter::ServerSetPLayerIsThrowing_Implementation(bool bPlayerIsThrowing)
 {
@@ -1215,6 +1409,14 @@ void AxBaseCharacter::MulticastPlayTPVThrowAnimation_Implementation()
 	{
 		bIsThrowing = true;
 		GetMesh()->GetAnimInstance()->Montage_Play(ThrowBallMontageTPV);
+
+		FOnMontageEnded BlendOutDelegate;
+		BlendOutDelegate.BindUObject(this, &AxBaseCharacter::ThrowBallMontegaOnAnimationBlendOut);
+		GetMesh()->GetAnimInstance()->Montage_SetBlendingOutDelegate(BlendOutDelegate, ThrowBallMontageTPV);
+
+		FOnMontageEnded CompleteDelegate;
+		CompleteDelegate.BindUObject(this, &AxBaseCharacter::ThrowBallMontegaOnAnimationEnd);
+		GetMesh()->GetAnimInstance()->Montage_SetEndDelegate(CompleteDelegate, ThrowBallMontageTPV);
 	}
 }
 
@@ -1255,6 +1457,7 @@ void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 	PlayerInputComponent->BindAction("Fight", IE_Pressed, this, &AxBaseCharacter::Fight);
 
 	PlayerInputComponent->BindAction("Kick", IE_Pressed, this, &AxBaseCharacter::Kick);
+	PlayerInputComponent->BindAction("Slide", IE_Pressed, this, &AxBaseCharacter::Slide);
 
 	PlayerInputComponent->BindAction("Block", IE_Pressed, this, &AxBaseCharacter::Block);
 
@@ -1302,7 +1505,9 @@ void AxBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(AxBaseCharacter, PlayerId);
 	DOREPLIFETIME(AxBaseCharacter, PlayerHittingMe);
 	DOREPLIFETIME(AxBaseCharacter, bIsAutoFight);
+	DOREPLIFETIME(AxBaseCharacter, bIsKO);
 	DOREPLIFETIME(AxBaseCharacter, bIsAttackMode);
+	DOREPLIFETIME(AxBaseCharacter, bIsSliding);
 
 
 }

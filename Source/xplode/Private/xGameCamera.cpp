@@ -80,7 +80,7 @@ void AxGameCamera::Tick(float DeltaTime)
 			}*/
 
 			/*SetActorRotation(UKismetMathLibrary::RInterpTo(GetActorRotation(), FRotator(CamRotation.Pitch, LookAtRotation.Yaw, CamRotation.Roll), DeltaTime, 2.f));*/
-			SetActorLocation(FMath::Lerp(CamLocation, FVector(CamLocation.X, BallLocation.Y, CamLocation.Z), 0.02f));
+			SetActorLocation(FMath::Lerp(CamLocation, FVector(BallLocation.X, ActorHasTag("Blue") ? BallLocation.Y  + 1000.f : BallLocation.Y - 1000.f, CamLocation.Z), 0.02f));
 		}
 	}
 }

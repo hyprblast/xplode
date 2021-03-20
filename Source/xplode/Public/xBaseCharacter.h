@@ -78,6 +78,9 @@ public:
 		bool bIsFighting;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
+		bool bIsSliding;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsTakingHit;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
@@ -142,6 +145,10 @@ public:
 	virtual bool GetPlayerIsFighting_Implementation() override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerIsSliding();
+	virtual bool GetPlayerIsSliding_Implementation() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerIsAutoFighting();
 	virtual bool GetPlayerIsAutoFighting_Implementation() override;
 
@@ -152,6 +159,10 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerHasBall();
 	virtual bool GetPlayerHasBall_Implementation() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerIsKO();
+	virtual bool GetPlayerIsKO_Implementation() override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerIsDead();
@@ -216,9 +227,6 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerThrowBall(FVector CameraFowardVector, bool bJustDropBall);
 
-	UFUNCTION(Client, Reliable)
-		void ClientThrowBall(FVector CameraFowardVector, bool bJustDropBall);
-
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerSetPLayerIsThrowing(bool bPlayerIsThrowing);
 
@@ -237,6 +245,9 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerFight(bool bIsKick, uint8 FightMoveIndex);
 
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerSlide();
+
 	UFUNCTION(NetMulticast, Unreliable)
 		void MulticastPlayTPVPickupAnimation();
 
@@ -250,7 +261,10 @@ public:
 		void MulticastFight(bool bIsKick, uint8 FightMoveIndex);
 
 	UFUNCTION(NetMulticast, Reliable)
-		void MulticastGettingPunchedLogic(uint8 GettingPunchedMoveIndex);
+		void MulticastSlide();
+
+	UFUNCTION(NetMulticast, Reliable)
+		void MulticastGettingPunchedLogic(uint8 GettingPunchedMoveIndex, bool isSlide);
 	
 	UFUNCTION()
 		void IncreaseThrowPower();
@@ -260,6 +274,9 @@ public:
 
 	UFUNCTION()
 		void Kick();
+
+	UFUNCTION()
+		void Slide();
 
 	UFUNCTION()
 		void Block();
@@ -372,6 +389,9 @@ protected:
 		bool bIsAutoFight;
 
 	UPROPERTY(Replicated)
+		bool bIsKO;
+
+	UPROPERTY(Replicated)
 		bool bIsAttackMode;
 
 	UPROPERTY(EditAnywhere, Category = "Animation")
@@ -395,15 +415,17 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Animation")
 		UAnimMontage* BlockMontage;
 
+	UPROPERTY(EditAnywhere, Category = "Animation")
+		UAnimMontage* SlideMontage;
+	UPROPERTY(EditAnywhere, Category = "Animation")
+		UAnimMontage* GettingHitFromSlideMontage;
+
 
 private:
 	
 	UPROPERTY()
 	uint8 CurrentFightMoveIndex;
 	
-	UPROPERTY()
-		UAnimMontage* LastPlayedGettingPunchedMontage;
-
 	UPROPERTY()
 		AxGameCamera* TopDownCam;
 
@@ -447,15 +469,61 @@ private:
 		void KickLogic(uint8 FightMoveIndex);
 
 	UFUNCTION()
+		void SlideLogic();
+
+	UFUNCTION()
 	void AITraceAndAttack();
 
 	UFUNCTION()
-	void ResetBoolFlags(bool ResetBallPossession, bool ResetAtackMode);
+	void SetHasBallFalse();
 
 	UFUNCTION()
 	void AIDisableAttackMode();
 
 	UFUNCTION()
 	bool AreFightingRelatedMontagesPlaying();
+
+	UFUNCTION()
+	void BlockMontageOnAnimationBlendOut(UAnimMontage* animMontage, bool bInterrupted);
+	
+	UFUNCTION()
+	void BlockMontageOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted);
+
+	UFUNCTION()
+		void SlideMontageOnAnimationBlendOut(UAnimMontage* animMontage, bool bInterrupted);
+	
+	UFUNCTION()
+		void SlideMontageOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted);
+	
+	UFUNCTION()
+		void GettingHitFromSlideMontageOnAnimationBlendOut(UAnimMontage* animMontage, bool bInterrupted);
+	
+	UFUNCTION()
+		void GettingHitFromSlideMontageOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted);
+
+	UFUNCTION()
+		void GettingPunchedMontageOnAnimationBlendOut(UAnimMontage* animMontage, bool bInterrupted);
+
+	UFUNCTION()
+		void GettingPunchedMontageOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted);
+
+	UFUNCTION()
+		void FightMontageOnAnimationBlendOut(UAnimMontage* animMontage, bool bInterrupted);
+
+	UFUNCTION()
+		void FightMontageOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted);
+
+	UFUNCTION()
+		void ThrowBallMontegaOnAnimationBlendOut(UAnimMontage* animMontage, bool bInterrupted);
+
+	UFUNCTION()
+		void ThrowBallMontegaOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted);
+
+	UFUNCTION()
+		void PickupBallMontageOnAnimationBlendOut(UAnimMontage* animMontage, bool bInterrupted);
+
+	UFUNCTION()
+		void PickupBallMontageOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted);
+
 
 };
