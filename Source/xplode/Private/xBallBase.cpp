@@ -70,8 +70,14 @@ void AxBallBase::CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, c
 			&& !IxBaseCharacterInterface::Execute_GetPlayerIsDead(OtherActor)
 			&& !IxBaseCharacterInterface::Execute_GetPlayerIsKO(OtherActor))
 		{
-			RemoveOverlapAndPhysics();
+			if (IsValid(WhoHasMe))
+			{
+				IxBaseCharacterInterface::Execute_SetPlayerHasBall(WhoHasMe, false);
+			}
+		
 			IxBaseCharacterInterface::Execute_PickupBall(OtherActor, this);
+			RemoveOverlapAndPhysics();
+			WhoHasMe = OtherActor;
 			
 			//Destroy();
 		}

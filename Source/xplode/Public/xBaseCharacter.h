@@ -72,6 +72,9 @@ public:
 		bool bHasBall;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
+		bool bIsPickingUpBall;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsThrowing;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
@@ -137,6 +140,10 @@ public:
 	virtual FName GetPlayerType_Implementation() override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerIsPickingUpBall();
+	virtual bool GetPlayerIsPickingUpBall_Implementation() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerIsBlocking();
 	virtual bool GetPlayerIsBlocking_Implementation() override;
 
@@ -159,6 +166,10 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerHasBall();
 	virtual bool GetPlayerHasBall_Implementation() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		uint8 SetPlayerHasBall(bool PlayerHasBall);
+	virtual uint8 SetPlayerHasBall_Implementation(bool PlayerHasBall) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerIsKO();

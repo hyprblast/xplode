@@ -165,7 +165,7 @@ void AxBaseCharacter::CallOnOverlap(class UPrimitiveComponent* OverlappedCompone
 
 		int32 ShouldAIBlock = FMath::RandRange(1, 50);
 
-		if (!bIsSliding && (IxBaseCharacterInterface::Execute_GetPlayerIsBlocking(OtherActor) || (OtherActor->ActorHasTag("Bot") && ShouldAIBlock > 30 && ShouldAIBlock % 2 != 0)))
+		if (!bIsSliding && (IxBaseCharacterInterface::Execute_GetPlayerIsBlocking(OtherActor) || (OtherActor->ActorHasTag("Bot") && ShouldAIBlock > 40)))
 		{
 			if (OtherActor->ActorHasTag("Bot"))
 			{
@@ -230,6 +230,11 @@ FName AxBaseCharacter::GetPlayerType_Implementation()
 	return PlayerTypeName;
 }
 
+bool AxBaseCharacter::GetPlayerIsPickingUpBall_Implementation()
+{
+	return bIsPickingUpBall;
+}
+
 bool AxBaseCharacter::GetPlayerIsBlocking_Implementation()
 {
 	return bIsBlocking;
@@ -261,6 +266,12 @@ bool AxBaseCharacter::GetPlayerHasBall_Implementation()
 }
 
 
+
+uint8 AxBaseCharacter::SetPlayerHasBall_Implementation(bool PlayerHasBall)
+{
+	bHasBall = PlayerHasBall;
+	return 1;
+}
 
 bool AxBaseCharacter::GetPlayerIsKO_Implementation()
 {
@@ -346,8 +357,8 @@ int32 AxBaseCharacter::ThrowBall_Implementation()
 
 int32 AxBaseCharacter::PickupBall_Implementation(AxBallBase* Ball)
 {
+	bIsPickingUpBall = true;
 	TPVBall = Ball;
-	bHasBall = true;
 	MulticastPlayTPVPickupAnimation();
 	return 1;
 }
@@ -361,6 +372,8 @@ int32 AxBaseCharacter::AttachBall_Implementation()
 {
 	if (HasAuthority())
 	{
+		bHasBall = true;
+		bIsPickingUpBall = false;
 		AttachBallToTPVMesh();
 		SubscribeToBallWarnEvent();
 		SubscribeToBallExplodeEvent();
@@ -506,6 +519,8 @@ void AxBaseCharacter::Tick(float DeltaTime)
 			if (Health <= 0 && !bIsDead)
 			{
 				bIsDead = true;
+				bHasBall = false;
+				
 				if (!bIsKO)
 				{
 					MulticastKilled();
@@ -513,6 +528,7 @@ void AxBaseCharacter::Tick(float DeltaTime)
 			}
 			if (ActorHasTag("Bot"))
 			{
+
 				/*Setting attack mode for bot on the server
 				2 attack conditions - 1: Autofight (this happens when is getting hit or when is going after the ball, this last one is set on BT) and 2: it has ball possession.*/
 
@@ -552,10 +568,10 @@ void AxBaseCharacter::Tick(float DeltaTime)
 
 void AxBaseCharacter::MoveFoward(float Value)
 {
-	/*if (AreFightingRelatedMontagesPlaying())
+	if (bIsKO || bIsDead)
 	{
 		return;
-	}*/
+	}
 
 	// find out which way is forward
 	const FRotator Rotation = Controller->GetControlRotation();
@@ -569,10 +585,10 @@ void AxBaseCharacter::MoveFoward(float Value)
 
 void AxBaseCharacter::MoveRight(float Value)
 {
-	/*if (AreFightingRelatedMontagesPlaying())
+	if (bIsKO || bIsDead)
 	{
 		return;
-	}*/
+	}
 
 	// find out which way is right
 	const FRotator Rotation = Controller->GetControlRotation();
@@ -826,6 +842,7 @@ void AxBaseCharacter::SlideMontageOnAnimationBlendOut(UAnimMontage* animMontage,
 	if (bInterrupted)
 	{
 		bIsSliding = false;
+		bIsFighting = false;
 	}
 }
 
@@ -834,6 +851,7 @@ void AxBaseCharacter::SlideMontageOnAnimationEnd(UAnimMontage* animMontage, bool
 	if (bInterrupted)
 	{
 		bIsSliding = false;
+		bIsFighting = false;
 	}
 }
 
@@ -842,6 +860,7 @@ void AxBaseCharacter::GettingHitFromSlideMontageOnAnimationBlendOut(UAnimMontage
 	if (bInterrupted)
 	{
 		bIsKO = false;
+		bIsTakingHit = false;
 	}
 }
 
@@ -850,6 +869,7 @@ void AxBaseCharacter::GettingHitFromSlideMontageOnAnimationEnd(UAnimMontage* ani
 	if (bInterrupted)
 	{
 		bIsKO = false;
+		bIsTakingHit = false;
 	}
 }
 
@@ -906,6 +926,7 @@ void AxBaseCharacter::PickupBallMontageOnAnimationBlendOut(UAnimMontage* animMon
 	if (bInterrupted)
 	{
 		bHasBall = true;
+		bIsPickingUpBall = false;
 	}
 }
 
@@ -914,6 +935,7 @@ void AxBaseCharacter::PickupBallMontageOnAnimationEnd(UAnimMontage* animMontage,
 	if (bInterrupted)
 	{
 		bHasBall = true;
+		bIsPickingUpBall = false;
 	}
 }
 
@@ -1144,7 +1166,16 @@ void AxBaseCharacter::AITraceAndAttack()
 				}
 				else
 				{
-					ServerFight(true, 0);
+					int32 ShouldAISlide = FMath::RandRange(1, 10);
+					
+					if (ShouldAISlide % 2 == 0)
+					{
+						ServerSlide();
+					}
+					else
+					{
+						ServerFight(true, 0);
+					}
 				}
 
 				CurrentFightMoveIndex++;
@@ -1163,6 +1194,9 @@ void AxBaseCharacter::AIDisableAttackMode()
 {
 	bIsAttackMode = false;
 	bIsAutoFight = false;
+	bIsTakingHit = false;
+	bIsFighting = false;
+	bIsBlocking = false;
 	GetWorld()->GetTimerManager().ClearTimer(AIDisableAttackModeTimerHandle);
 }
 
@@ -1336,7 +1370,7 @@ void AxBaseCharacter::MulticastSlide_Implementation()
 
 void AxBaseCharacter::MulticastGettingPunchedLogic_Implementation(uint8 GettingPunchedMoveIndex, bool isSlide)
 {
-	
+
 	if (!isSlide && !GetMesh()->GetAnimInstance()->Montage_IsPlaying(GettingPunchedMontages[GettingPunchedMoveIndex]))
 	{
 		GetMesh()->GetAnimInstance()->Montage_Play(GettingPunchedMontages[GettingPunchedMoveIndex]);
@@ -1352,7 +1386,7 @@ void AxBaseCharacter::MulticastGettingPunchedLogic_Implementation(uint8 GettingP
 	else if (isSlide && !GetMesh()->GetAnimInstance()->Montage_IsPlaying(GettingHitFromSlideMontage))
 	{
 		GetMesh()->GetAnimInstance()->Montage_Play(GettingHitFromSlideMontage);
-		
+
 		FOnMontageEnded BlendOutDelegate;
 		BlendOutDelegate.BindUObject(this, &AxBaseCharacter::GettingHitFromSlideMontageOnAnimationBlendOut);
 		GetMesh()->GetAnimInstance()->Montage_SetBlendingOutDelegate(BlendOutDelegate, GettingHitFromSlideMontage);
@@ -1360,12 +1394,12 @@ void AxBaseCharacter::MulticastGettingPunchedLogic_Implementation(uint8 GettingP
 		FOnMontageEnded CompleteDelegate;
 		CompleteDelegate.BindUObject(this, &AxBaseCharacter::GettingHitFromSlideMontageOnAnimationEnd);
 		GetMesh()->GetAnimInstance()->Montage_SetEndDelegate(CompleteDelegate, GettingHitFromSlideMontage);
-	
-	}
-	
-	
 
-	
+	}
+
+
+
+
 }
 
 void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraFowardVector, bool bJustDropBall)
@@ -1508,6 +1542,7 @@ void AxBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(AxBaseCharacter, bIsKO);
 	DOREPLIFETIME(AxBaseCharacter, bIsAttackMode);
 	DOREPLIFETIME(AxBaseCharacter, bIsSliding);
+	DOREPLIFETIME(AxBaseCharacter, bIsPickingUpBall);
 
 
 }

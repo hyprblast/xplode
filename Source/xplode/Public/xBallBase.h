@@ -192,6 +192,9 @@ private:
 	UPROPERTY()
 		float InterpRate = .85f;
 
+	UPROPERTY()
+		AActor* WhoHasMe;
+
 	UFUNCTION()
 		void ClearTimer();
 

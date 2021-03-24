@@ -21,6 +21,12 @@ public:
 		bool GetPlayerHasBall();
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerIsPickingUpBall();
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		uint8 SetPlayerHasBall(bool PlayerHasBall);
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerIsThrowing();
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
