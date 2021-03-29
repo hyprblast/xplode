@@ -51,10 +51,13 @@ public:
 	//	UPhysicsHandleComponent* PhysicsHandle;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-		UCameraComponent* CameraComp;
+		USpringArmComponent* SpringArmComp;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-		USkeletalMeshComponent* SkeletalMeshComp;
+		UCameraComponent* CameraComp;
+
+	//UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	//	USkeletalMeshComponent* SkeletalMeshComp;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 		USphereComponent* LeftHandCollisionComp;
@@ -361,6 +364,9 @@ protected:
 		void Turn(float Value);
 
 	UFUNCTION()
+		void ChangeCameraPitch(float Value);
+
+	UFUNCTION()
 		void PlayThrowBallAnim();
 
 	UFUNCTION()
@@ -414,8 +420,8 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Animation")
 		TArray<UAnimMontage*> GettingPunchedMontages;
 
-	UPROPERTY(EditAnywhere, Category = "Animation")
-		UAnimMontage* ThrowBallMontage;
+	//UPROPERTY(EditAnywhere, Category = "Animation")
+	//	UAnimMontage* ThrowBallMontage;
 
 	UPROPERTY(EditAnywhere, Category = "Animation")
 		UAnimMontage* ThrowBallMontageTPV;
@@ -434,6 +440,24 @@ protected:
 
 private:
 	
+	UPROPERTY()
+		FVector DefaultSpringArmVector = FVector(0, 33.0f, 76.0f);
+
+	UPROPERTY()
+		float DefaultSpringArmPitch = -40.f;
+
+	UPROPERTY()
+		float TargetSpringArmPitch;
+
+	UPROPERTY()
+		float DefaultSpringArmLength = 2100.f;
+
+	UPROPERTY()
+		float TargetSpringArmLength;
+
+	UPROPERTY()
+		bool bIsChangingPitch;
+
 	UPROPERTY()
 	uint8 CurrentFightMoveIndex;
 	
@@ -469,6 +493,12 @@ private:
 
 	UFUNCTION()
 		void LoadDynamicRefs();
+
+	UFUNCTION()
+		void ChangeSpringArmPitch(float DeltaTime);
+
+	UFUNCTION()
+		void ChangeSpringArmLength(float DeltaTime);
 
 	UFUNCTION()
 		void Die();

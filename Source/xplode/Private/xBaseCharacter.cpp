@@ -31,7 +31,8 @@
 #include "FightDamageType.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "AIController.h"
-#include <Animation/AnimMontage.h>
+#include "Animation/AnimMontage.h"
+#include "Math/UnrealMathUtility.h"
 //#include "PhysicsEngine/PhysicsHandleComponent.h"
 
 
@@ -41,6 +42,30 @@ AxBaseCharacter::AxBaseCharacter()
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+
+	bUseControllerRotationYaw = false;
+	bUseControllerRotationPitch = false;
+	bUseControllerRotationRoll = false;
+
+
+	SpringArmComp = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArmComp"));
+	SpringArmComp->SetupAttachment(RootComponent);
+	SpringArmComp->bUsePawnControlRotation = true;
+	SpringArmComp->bEnableCameraLag = true;
+	SpringArmComp->bEnableCameraRotationLag = true;
+	SpringArmComp->SetRelativeLocation(DefaultSpringArmVector);
+	SpringArmComp->bInheritPitch = false;
+	SpringArmComp->bInheritYaw = true;
+	SpringArmComp->bInheritRoll = true;
+	SpringArmComp->SetRelativeRotation(FRotator(DefaultSpringArmPitch, 0, 0));
+	SpringArmComp->TargetArmLength = DefaultSpringArmLength;
+	SpringArmComp->bDoCollisionTest = false;
+	TargetSpringArmPitch = DefaultSpringArmPitch;
+	TargetSpringArmLength = DefaultSpringArmLength;
+
+	CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraComp"));
+	CameraComp->bUsePawnControlRotation = false;
+	CameraComp->SetupAttachment(SpringArmComp);
 
 
 	UCapsuleComponent* CapsuleComp = GetCapsuleComponent();
@@ -57,31 +82,35 @@ AxBaseCharacter::AxBaseCharacter()
 	TPVMesh->SetCollisionProfileName(TEXT("xSkeletalMeshCollision"));
 	TPVMesh->CanCharacterStepUp(false);
 	TPVMesh->SetGenerateOverlapEvents(true);
+	TPVMesh->CastShadow = false;
 
-	CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
-	CameraComp->SetWorldLocation(FVector(0, 0, 70.0f));
-	/*CameraComp->bUsePawnControlRotation = false;*/
-	CameraComp->SetupAttachment(CapsuleComp);
-	CameraComp->SetIsReplicated(true);
+	//CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
+	//CameraComp->SetWorldLocation(FVector(0, 0, 70.0f));
+	///*CameraComp->bUsePawnControlRotation = false;*/
+	//CameraComp->SetupAttachment(CapsuleComp);
+	//CameraComp->SetIsReplicated(true);
 
 
 
 
-	SkeletalMeshComp = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FPArms"));
-	SkeletalMeshComp->CanCharacterStepUp(false);
-	SkeletalMeshComp->bOnlyOwnerSee = true;
-	SkeletalMeshComp->SetupAttachment(CameraComp);
+	//SkeletalMeshComp = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FPArms"));
+	//SkeletalMeshComp->CanCharacterStepUp(false);
+	//SkeletalMeshComp->bOnlyOwnerSee = true;
+	//SkeletalMeshComp->SetupAttachment(CameraComp);
 
 
 
 	/*SkeletalMeshComp->SetCollisionObjectType(XBALLNOCOLLISIONOBJECT_CHANNEL);
 	SkeletalMeshComp->SetCollisionProfileName(TEXT("xBalllMeshNoCollision"));*/
-	SkeletalMeshComp->CanCharacterStepUp(false);
+	//SkeletalMeshComp->CanCharacterStepUp(false);
 
 	UCharacterMovementComponent* const MovementComponent = GetCharacterMovement();
 
 	MovementComponent->SetIsReplicated(true);
 	MovementComponent->bUseControllerDesiredRotation = true;
+	/*MovementComponent->RotationRate = FRotator(0.0f, 180.0f, 0.0f);*/
+	MovementComponent->bOrientRotationToMovement = true;
+	MovementComponent->MaxWalkSpeed = 1000.f;
 
 	FAttachmentTransformRules TransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, true);
 
@@ -417,7 +446,7 @@ void AxBaseCharacter::BeginPlay()
 		}
 	}
 
-	MulticastSetTopDownViewSettings();
+	/*MulticastSetTopDownViewSettings();*/
 
 	/*FindTopDownCamera();
 
@@ -496,6 +525,20 @@ void AxBaseCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (IsLocallyControlled())
+	{
+		if (TargetSpringArmPitch != SpringArmComp->GetRelativeRotation().Pitch)
+		{
+			ChangeSpringArmPitch(DeltaTime);
+		}
+
+		if (TargetSpringArmLength != SpringArmComp->TargetArmLength)
+		{
+			ChangeSpringArmLength(DeltaTime);
+		}
+
+	}
+
 	if (HasAuthority())
 	{
 		if (!bIsDead)
@@ -511,16 +554,16 @@ void AxBaseCharacter::Tick(float DeltaTime)
 			{
 				ThrowPower += 500;
 
-				if (GEngine)
+				/*if (GEngine)
 				{
 					GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, FString::SanitizeFloat(ThrowPower));
-				}
+				}*/
 			}
 			if (Health <= 0 && !bIsDead)
 			{
 				bIsDead = true;
 				bHasBall = false;
-				
+
 				if (!bIsKO)
 				{
 					MulticastKilled();
@@ -559,16 +602,12 @@ void AxBaseCharacter::Tick(float DeltaTime)
 
 			}
 		}
-		else
-		{
-
-		}
 	}
 }
 
 void AxBaseCharacter::MoveFoward(float Value)
 {
-	if (bIsKO || bIsDead)
+	if (bIsKO || bIsDead || bIsFighting || bIsSliding || bIsBlocking)
 	{
 		return;
 	}
@@ -585,7 +624,7 @@ void AxBaseCharacter::MoveFoward(float Value)
 
 void AxBaseCharacter::MoveRight(float Value)
 {
-	if (bIsKO || bIsDead)
+	if (bIsKO || bIsDead || bIsFighting || bIsSliding || bIsBlocking)
 	{
 		return;
 	}
@@ -651,8 +690,8 @@ AxBallBase* AxBaseCharacter::SpawnBall(FTransform SpawnLocation)
 void AxBaseCharacter::LoadDynamicRefs()
 {
 	// Load References
-	ThrowBallMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/ThrowBallAnimMontage.ThrowBallAnimMontage'")));
-	ThrowBallMontageTPV = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/ThrowBallAnimMontageTPV.ThrowBallAnimMontageTPV'")));
+	/*ThrowBallMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/ThrowBallAnimMontage.ThrowBallAnimMontage'")));*/
+	ThrowBallMontageTPV = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/ThrowBallAnimMontage.ThrowBallAnimMontage'")));
 	PickupBallMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/PickUpAnimMontage.PickUpAnimMontage'")));
 
 	UAnimMontage* PunchLeftMontage = Cast<UAnimMontage>(StaticLoadObject(UAnimMontage::StaticClass(), NULL, TEXT("AnimMontage'/Game/_Main/Characters/Animations/Montages/PunchLeftAnimMontage.PunchLeftAnimMontage'")));
@@ -701,6 +740,18 @@ void AxBaseCharacter::LoadDynamicRefs()
 	/*FightTrailParticle = Cast<UParticleSystem>(StaticLoadObject(UParticleSystem::StaticClass(), NULL, TEXT("ParticleSystem'/Game/BallisticsVFX/Particles/Explosive/Whispy_Trail.Whispy_Trail'")));*/
 }
 
+void AxBaseCharacter::ChangeSpringArmPitch(float DeltaTime)
+{
+
+	SpringArmComp->SetRelativeRotation(FMath::RInterpTo(SpringArmComp->GetRelativeRotation(), FRotator(TargetSpringArmPitch, 0, 0), DeltaTime, 2.f));
+}
+
+void AxBaseCharacter::ChangeSpringArmLength(float DeltaTime)
+{
+	float CurrentLength = SpringArmComp->TargetArmLength;
+	SpringArmComp->TargetArmLength = FMath::FInterpTo(CurrentLength, TargetSpringArmLength, DeltaTime, 2.f);
+}
+
 void AxBaseCharacter::OnBallWarn()
 {
 	ClientPlayBallWarnEvent();
@@ -722,13 +773,23 @@ void AxBaseCharacter::Turn(float Value)
 	}
 }
 
+void AxBaseCharacter::ChangeCameraPitch(float Value)
+{
+	TargetSpringArmPitch += Value;
+	TargetSpringArmPitch = FMath::Clamp(TargetSpringArmPitch, DefaultSpringArmPitch, -10.f);
+
+	TargetSpringArmLength -= 100.f * Value;
+	TargetSpringArmLength = FMath::Clamp(TargetSpringArmLength, 300.f, DefaultSpringArmLength);
+}
+
 void AxBaseCharacter::PlayThrowBallAnim()
 {
+
 
 	if (bHasBall && !bIsThrowing && ThrowPower > 0)
 	{
 		bIsThrowing = true;
-		SkeletalMeshComp->GetAnimInstance()->Montage_Play(ThrowBallMontage);
+		//SkeletalMeshComp->GetAnimInstance()->Montage_Play(ThrowBallMontage);
 		ServerPlayTPVThrowBallAnim();
 	}
 }
@@ -941,18 +1002,15 @@ void AxBaseCharacter::PickupBallMontageOnAnimationEnd(UAnimMontage* animMontage,
 
 void AxBaseCharacter::BlockLogic()
 {
-	if (!AreFightingRelatedMontagesPlaying())
-	{
-		bIsBlocking = true;
-		GetMesh()->GetAnimInstance()->Montage_Play(BlockMontage);
-		FOnMontageEnded BlendOutDelegate;
-		BlendOutDelegate.BindUObject(this, &AxBaseCharacter::BlockMontageOnAnimationBlendOut);
-		GetMesh()->GetAnimInstance()->Montage_SetBlendingOutDelegate(BlendOutDelegate, BlockMontage);
+	bIsBlocking = true;
+	GetMesh()->GetAnimInstance()->Montage_Play(BlockMontage);
+	FOnMontageEnded BlendOutDelegate;
+	BlendOutDelegate.BindUObject(this, &AxBaseCharacter::BlockMontageOnAnimationBlendOut);
+	GetMesh()->GetAnimInstance()->Montage_SetBlendingOutDelegate(BlendOutDelegate, BlockMontage);
 
-		FOnMontageEnded CompleteDelegate;
-		CompleteDelegate.BindUObject(this, &AxBaseCharacter::BlockMontageOnAnimationEnd);
-		GetMesh()->GetAnimInstance()->Montage_SetEndDelegate(CompleteDelegate, BlockMontage);
-	}
+	FOnMontageEnded CompleteDelegate;
+	CompleteDelegate.BindUObject(this, &AxBaseCharacter::BlockMontageOnAnimationEnd);
+	GetMesh()->GetAnimInstance()->Montage_SetEndDelegate(CompleteDelegate, BlockMontage);
 }
 
 
@@ -992,50 +1050,50 @@ bool AxBaseCharacter::ServerSetTopDownViewSettings_Validate()
 
 void AxBaseCharacter::MulticastSetFirstPersonViewSettings_Implementation()
 {
-	CameraComp->bUsePawnControlRotation = true;
-	bUseControllerRotationYaw = true;
-	GetCharacterMovement()->bOrientRotationToMovement = false;
+	//CameraComp->bUsePawnControlRotation = true;
+	//bUseControllerRotationYaw = true;
+	//GetCharacterMovement()->bOrientRotationToMovement = false;
 
 
-	if (HasAuthority())
-	{
-		SkeletalMeshComp->SetHiddenInGame(false);
-		GetMesh()->bOwnerNoSee = true;
+	//if (HasAuthority())
+	//{
+	///*	SkeletalMeshComp->SetHiddenInGame(false);*/
+	//	GetMesh()->bOwnerNoSee = true;
 
-		ClientActivateFirstPersonViewCam();
-	}
+	//	ClientActivateFirstPersonViewCam();
+	//}
 }
 
 void AxBaseCharacter::MulticastSetActorRotation_Implementation(FRotator TargetRotation)
 {
-	SetActorRotation(TargetRotation);
+	/*SetActorRotation(TargetRotation);*/
 }
 
 void AxBaseCharacter::MulticastSetTopDownViewSettings_Implementation()
 {
-	bUseControllerRotationYaw = false;
-	bUseControllerRotationPitch = false;
-	bUseControllerRotationRoll = false;
+	//bUseControllerRotationYaw = false;
+	//bUseControllerRotationPitch = false;
+	//bUseControllerRotationRoll = false;
 
-	UCharacterMovementComponent* const MovementComponent = GetCharacterMovement();
+	//UCharacterMovementComponent* const MovementComponent = GetCharacterMovement();
 
-	if (MovementComponent)
-	{
-		MovementComponent->bOrientRotationToMovement = true;
-		MovementComponent->bUseControllerDesiredRotation = false;
-		MovementComponent->RotationRate = FRotator(0.0f, 840.0f, 0.0f);
-		MovementComponent->bAllowPhysicsRotationDuringAnimRootMotion = true;
+	//if (MovementComponent)
+	//{
+	//	MovementComponent->bOrientRotationToMovement = true;
+	//	MovementComponent->bUseControllerDesiredRotation = false;
+	//	MovementComponent->RotationRate = FRotator(0.0f, 840.0f, 0.0f);
+	//	MovementComponent->bAllowPhysicsRotationDuringAnimRootMotion = true;
 
-	}
+	//}
 
 
 
-	if (HasAuthority())
-	{
-		SkeletalMeshComp->SetHiddenInGame(true);
-		GetMesh()->bOwnerNoSee = false;
-		ClientActivateTopDownViewCam();
-	}
+	//if (HasAuthority())
+	//{
+	//	/*SkeletalMeshComp->SetHiddenInGame(true);*/
+	//	GetMesh()->bOwnerNoSee = false;
+	//	ClientActivateTopDownViewCam();
+	//}
 }
 
 void AxBaseCharacter::MulticastKilledByExplosion_Implementation()
@@ -1129,6 +1187,7 @@ void AxBaseCharacter::SlideLogic()
 		FVector FowardVector = GetActorForwardVector();
 		PushPlayer(FVector(FowardVector.X * 700.f, FowardVector.Y * 700.f, 300.f), true, false);
 	}
+	
 }
 
 void AxBaseCharacter::AITraceAndAttack()
@@ -1167,7 +1226,7 @@ void AxBaseCharacter::AITraceAndAttack()
 				else
 				{
 					int32 ShouldAISlide = FMath::RandRange(1, 10);
-					
+
 					if (ShouldAISlide % 2 == 0)
 					{
 						ServerSlide();
@@ -1405,8 +1464,6 @@ void AxBaseCharacter::MulticastGettingPunchedLogic_Implementation(uint8 GettingP
 void AxBaseCharacter::ServerThrowBall_Implementation(FVector CameraFowardVector, bool bJustDropBall)
 {
 	TPVBall->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-	/*PhysicsHandle->ReleaseComponent();*/
-	/*PhysicsHandle->SetActive(false);*/
 	TPVBall->Shoot(CameraFowardVector * (!bJustDropBall ? FMath::Clamp(ThrowPower, MinThrowPower, MaxThrowPower) : 5000.f));
 	UnSubscribeToBallWarnEvent();
 	UnSubscribeToBallExplodeEvent();
@@ -1477,7 +1534,8 @@ void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	PlayerInputComponent->BindAxis("LookUp", this, &AxBaseCharacter::AddControllerPitchInput);
+	/*PlayerInputComponent->BindAxis("LookUp", this, &AxBaseCharacter::AddControllerPitchInput);*/
+	PlayerInputComponent->BindAxis("LookUp", this, &AxBaseCharacter::ChangeCameraPitch);
 	PlayerInputComponent->BindAxis("Turn", this, &AxBaseCharacter::Turn);
 
 	PlayerInputComponent->BindAxis("MoveFoward", this, &AxBaseCharacter::MoveFoward);
@@ -1501,21 +1559,21 @@ void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 
 void AxBaseCharacter::SpawnNewBallOnFPVMesh()
 {
-	FName SocketName = TEXT("hand_socket");
+	//FName SocketName = TEXT("hand_socket");
 
-	FActorSpawnParameters spawnParams;
-	spawnParams.Owner = this;
-	spawnParams.Instigator = this;
+	//FActorSpawnParameters spawnParams;
+	//spawnParams.Owner = this;
+	//spawnParams.Instigator = this;
 
-	FAttachmentTransformRules TransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, true);
-	FTransform FPVSocketTransform = SkeletalMeshComp->GetSocketTransform(SocketName, RTS_World);
+	//FAttachmentTransformRules TransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, true);
+	//FTransform FPVSocketTransform = SkeletalMeshComp->GetSocketTransform(SocketName, RTS_World);
 
-	FPVBall = SpawnBall(FPVSocketTransform);
-	FPVBall->SphereComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	FPVBall->SetReplicates(false);
-	FPVBall->SphereComp->SetOnlyOwnerSee(true);
-	FPVBall->SetReplicateMovement(false);
-	FPVBall->AttachToComponent(SkeletalMeshComp, TransformRules, SocketName);
+	//FPVBall = SpawnBall(FPVSocketTransform);
+	//FPVBall->SphereComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	//FPVBall->SetReplicates(false);
+	//FPVBall->SphereComp->SetOnlyOwnerSee(true);
+	//FPVBall->SetReplicateMovement(false);
+	//FPVBall->AttachToComponent(SkeletalMeshComp, TransformRules, SocketName);
 }
 
 

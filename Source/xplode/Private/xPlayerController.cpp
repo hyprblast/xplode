@@ -53,7 +53,7 @@ int32 AxPlayerController::SpawnPlayer_Implementation(TSubclassOf<AxBaseCharacter
 	SpawnedPlayer->ClientSetPlayerTypeName(PlayerTypeName);
 
 	//// Set top down default view
-	SpawnedPlayer->MulticastSetTopDownViewSettings();
+	//SpawnedPlayer->MulticastSetTopDownViewSettings();
 	
 	return 1;
 }

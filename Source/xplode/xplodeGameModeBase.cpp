@@ -44,7 +44,7 @@ void AxplodeGameModeBase::RequestSpawnPlayerType(FName TypeName, APlayerControll
 	
 
 		FTransform Transform = TypeName == TEXT("Blue") ? BlueSpanwPoints[Rand]->GetTransform() : RedSpawnPoints[Rand]->GetTransform();
-		FRotator Rotator = FRotator(0, TypeName == TEXT("Blue") ? -90.f : 90.f, 0);
+		FRotator Rotator = FRotator(0, TypeName == TEXT("Blue") ? -180.f : 180.f, 0);
 		Transform.SetRotation(Rotator.Quaternion());
 
 		if (PlayerController->GetClass()->ImplementsInterface(UxPlayerControllerInterface::StaticClass()))

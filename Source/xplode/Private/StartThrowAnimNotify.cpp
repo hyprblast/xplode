@@ -11,7 +11,6 @@ void UStartThrowAnimNotify::Notify(USkeletalMeshComponent* MeshComp, UAnimSequen
 
 	if (IsValid(MeshComp) && IsValid(Player) && Player->GetClass()->ImplementsInterface(UxBaseCharacterInterface::StaticClass()))
 	{
-		/*UE_LOG(LogTemp, Log, TEXT("Notify"));*/
 		IxBaseCharacterInterface::Execute_ThrowBall(Player);
 		
 	}

@@ -158,7 +158,7 @@ void AxBallBase::BeginPlay()
 		SetStaticMesh();
 		SphereComp->OnComponentBeginOverlap.AddDynamic(this, &AxBallBase::CallOnOverlap);
 		SphereComp->OnComponentHit.AddDynamic(this, &AxBallBase::OnCompHit);
-		MulticastAddSelfAsCameraTarget();
+		//MulticastAddSelfAsCameraTarget();
 	}
 }
 
