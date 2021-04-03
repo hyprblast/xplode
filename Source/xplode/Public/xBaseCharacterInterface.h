@@ -3,6 +3,7 @@
 #pragma once
 
 #include "UObject/Interface.h"
+#include "Templates/SubclassOf.h"
 #include "xBaseCharacterInterface.generated.h"
 
 UINTERFACE()
@@ -49,6 +50,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		uint8 AIBlock();
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		uint8 SetWeaponToSpawn(AActor* Sender, TSubclassOf<AxWeaponBase> WeaponToSpawn);
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SetPlayerIsThrowing(bool bPlayerIsThrowing);

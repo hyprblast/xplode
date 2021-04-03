@@ -10,6 +10,7 @@
 #define XGOALPOSTOBJECT_CHANNEL			   ECC_GameTraceChannel3
 #define XPUNCHOBJECT_CHANNEL			   ECC_GameTraceChannel4
 #define XSKEKETALMESHOBJECT_CHANNEL        ECC_GameTraceChannel5
+#define XWEAPONPICKUPOBJECT_CHANNEL            ECC_GameTraceChannel6
 #define HEAD							   SurfaceType1
 #define TORSO							   SurfaceType2
 #define ARMS							   SurfaceType3

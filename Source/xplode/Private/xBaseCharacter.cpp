@@ -33,6 +33,7 @@
 #include "AIController.h"
 #include "Animation/AnimMontage.h"
 #include "Math/UnrealMathUtility.h"
+#include <Math/TransformNonVectorized.h>
 //#include "PhysicsEngine/PhysicsHandleComponent.h"
 
 
@@ -111,6 +112,7 @@ AxBaseCharacter::AxBaseCharacter()
 	/*MovementComponent->RotationRate = FRotator(0.0f, 180.0f, 0.0f);*/
 	MovementComponent->bOrientRotationToMovement = true;
 	MovementComponent->MaxWalkSpeed = 1000.f;
+	MovementComponent->SetWalkableFloorAngle(0);
 
 	FAttachmentTransformRules TransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, true);
 
@@ -320,6 +322,13 @@ FGuid AxBaseCharacter::GetPlayerHittingMe_Implementation()
 FGuid AxBaseCharacter::GetPlayerId_Implementation()
 {
 	return PlayerId;
+}
+
+uint8 AxBaseCharacter::SetWeaponToSpawn_Implementation(AActor* Sender, TSubclassOf<AxWeaponBase> WeaponToSpawn)
+{
+	WeaponToBeSpawned = WeaponToSpawn;
+	WeaponPickupChest = Sender;
+	return 1;
 }
 
 int32 AxBaseCharacter::SetPlayerIsThrowing_Implementation(bool bPlayerIsThrowing)
@@ -669,7 +678,7 @@ void AxBaseCharacter::AttachBallToTPVMesh()
 	PhysicsHandle->GrabComponentAtLocationWithRotation(TPVBall->SphereComp, SocketName, TPVSocketTransform.GetLocation(), TPVSocketTransform.GetRotation().Rotator());
 	*/
 	TPVBall->AttachToComponent(TPVSkeletalMesh, TransformRules, SocketName);
-	/*TPVBall->StartTimer();*/
+	TPVBall->StartTimer();
 
 }
 
@@ -707,7 +716,7 @@ void AxBaseCharacter::LoadDynamicRefs()
 
 	FightAnimMontages.Add(PunchLeftMontage);
 	FightAnimMontages.Add(PunchRightMontage);
-	FightAnimMontages.Add(OverhandRightMontage);
+	FightAnimMontages.Add(OverhandLeftMontage);
 	FightAnimMontages.Add(OverhandRightMontage);
 	FightAnimMontages.Add(UpperCutLeftMontage);
 	FightAnimMontages.Add(UpperCutRightMontage);
@@ -811,6 +820,43 @@ void AxBaseCharacter::CamToggle()
 }
 
 
+
+void AxBaseCharacter::SpawnWweapon()
+{
+	if (WeaponToBeSpawned != NULL)
+	{
+		ServerSpawnWweapon();
+	}
+}
+
+void AxBaseCharacter::ServerSpawnWweapon_Implementation()
+{
+	MulticastSpawnWweapon();
+	WeaponPickupChest->Destroy();
+}
+
+bool AxBaseCharacter::ServerSpawnWweapon_Validate()
+{
+	return true;
+}
+
+void AxBaseCharacter::MulticastSpawnWweapon_Implementation()
+{
+	FTransform SocketTransform;
+
+	FActorSpawnParameters spawnParams;
+	spawnParams.Owner = this;
+	spawnParams.Instigator = this;
+
+	MyWeapon = GetWorld()->SpawnActor<AxWeaponBase>(WeaponToBeSpawned, SocketTransform, spawnParams);
+
+	FAttachmentTransformRules TransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, true);
+
+	MyWeapon->SetActorTransform(GetMesh()->GetSocketTransform(TEXT("weaponSocket"), RTS_World));
+	MyWeapon->AttachToComponent(GetMesh(), TransformRules, TEXT("weaponSocket"));
+
+	WeaponToBeSpawned = NULL;
+}
 
 void AxBaseCharacter::IncreaseThrowPower()
 {
@@ -1098,23 +1144,16 @@ void AxBaseCharacter::MulticastSetTopDownViewSettings_Implementation()
 
 void AxBaseCharacter::MulticastKilledByExplosion_Implementation()
 {
-	if (CameraVieww == UxCameraView::TopDown)
-	{
-		// Ragdoll
-		USkeletalMeshComponent* TPVMesh = GetMesh();
-		TPVMesh->SetCollisionProfileName(TEXT("BlockAll"));
-		TPVMesh->SetAllBodiesSimulatePhysics(true);
-		TPVMesh->SetSimulatePhysics(true);
-		TPVMesh->WakeAllRigidBodies();
-		TPVMesh->bBlendPhysics = true;
+	// Ragdoll
+	USkeletalMeshComponent* TPVMesh = GetMesh();
+	TPVMesh->SetCollisionProfileName(TEXT("BlockAll"));
+	TPVMesh->SetAllBodiesSimulatePhysics(true);
+	TPVMesh->SetSimulatePhysics(true);
+	TPVMesh->WakeAllRigidBodies();
+	TPVMesh->bBlendPhysics = true;
 
 
-		Die();
-
-
-
-		/*TPVMesh->AddRadialForce(GetActorUpVector(), 50.f, 15000.f, ERadialImpulseFalloff::RIF_MAX);*/
-	}
+	Die();
 }
 
 void AxBaseCharacter::MulticastKilled_Implementation()
@@ -1135,6 +1174,12 @@ void AxBaseCharacter::Die()
 
 void AxBaseCharacter::FightLogic(uint8 FightMoveIndex)
 {
+	if (!GetCharacterMovement()->IsFalling())
+	{
+		FVector FowardVector = GetActorForwardVector();
+		PushPlayer(FVector(FowardVector.X * 300.f, FowardVector.Y * 300.f, 0), false, false);
+	}
+
 	GetMesh()->GetAnimInstance()->Montage_Play(FightAnimMontages[FightMoveIndex]);
 
 	FOnMontageEnded BlendOutDelegate;
@@ -1198,10 +1243,10 @@ void AxBaseCharacter::AITraceAndAttack()
 	QueryParams.bReturnPhysicalMaterial = true;
 
 	FHitResult Hit;
-	FVector TraceStart = CameraComp->GetComponentLocation();
+	FVector TraceStart = GetActorLocation();
 	FVector TraceEnd = TraceStart + (GetActorForwardVector() * 250);
 
-	//DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor(255.0, 0, 0), true);
+	/*DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor(255.0, 0, 0), true);*/
 	if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility, QueryParams))
 	{
 		AActor* HitActor = Hit.GetActor();
@@ -1553,6 +1598,8 @@ void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 
 	PlayerInputComponent->BindAction("Block", IE_Pressed, this, &AxBaseCharacter::Block);
 
+	PlayerInputComponent->BindAction("Pickup", IE_Pressed, this, &AxBaseCharacter::SpawnWweapon);
+
 	PlayerInputComponent->BindAction("CamToggle", IE_Pressed, this, &AxBaseCharacter::CamToggle);
 }
 
@@ -1601,6 +1648,7 @@ void AxBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(AxBaseCharacter, bIsAttackMode);
 	DOREPLIFETIME(AxBaseCharacter, bIsSliding);
 	DOREPLIFETIME(AxBaseCharacter, bIsPickingUpBall);
+	DOREPLIFETIME(AxBaseCharacter, WeaponToBeSpawned);
 
 
 }

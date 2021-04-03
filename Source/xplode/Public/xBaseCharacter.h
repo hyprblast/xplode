@@ -19,9 +19,9 @@
 #include "Particles/ParticleSystem.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "Misc/Guid.h"
+#include "xWeaponBase.h"
 #include "xBaseCharacter.generated.h"
 
-class UCameraComponent;
 
 UCLASS()
 class XPLODE_API AxBaseCharacter : public ACharacter, public IxBaseCharacterInterface
@@ -105,7 +105,7 @@ public:
 		FGuid PlayerId;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FX")
-	UParticleSystem* BloodParticles;
+		UParticleSystem* BloodParticles;
 
 	/*UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FX")
 		UParticleSystem* FightTrailParticle;*/
@@ -189,6 +189,10 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		FGuid GetPlayerId();
 	virtual FGuid GetPlayerId_Implementation() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		uint8 SetWeaponToSpawn(AActor* Sender, TSubclassOf<AxWeaponBase> WeapontToSpawn);
+	virtual uint8 SetWeaponToSpawn_Implementation(AActor* Sender, TSubclassOf<AxWeaponBase> WeaponToSpawn) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SetPlayerIsThrowing(bool bPlayerIsThrowing);
@@ -279,7 +283,7 @@ public:
 
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastGettingPunchedLogic(uint8 GettingPunchedMoveIndex, bool isSlide);
-	
+
 	UFUNCTION()
 		void IncreaseThrowPower();
 
@@ -372,6 +376,15 @@ protected:
 	UFUNCTION()
 		void CamToggle();
 
+	UFUNCTION()
+		void SpawnWweapon();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerSpawnWweapon();
+
+	UFUNCTION(NetMulticast, Reliable)
+		void MulticastSpawnWweapon();
+
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerIncreaseThrowPower();
 
@@ -438,8 +451,12 @@ protected:
 		UAnimMontage* GettingHitFromSlideMontage;
 
 
+
+
+
+
 private:
-	
+
 	UPROPERTY()
 		FVector DefaultSpringArmVector = FVector(0, 33.0f, 76.0f);
 
@@ -459,8 +476,8 @@ private:
 		bool bIsChangingPitch;
 
 	UPROPERTY()
-	uint8 CurrentFightMoveIndex;
-	
+		uint8 CurrentFightMoveIndex;
+
 	UPROPERTY()
 		AxGameCamera* TopDownCam;
 
@@ -477,10 +494,19 @@ private:
 		float PushPlayerFactor;
 
 	UPROPERTY()
-	UBehaviorTree* BehaviourTree;
+		UBehaviorTree* BehaviourTree;
 
 	UPROPERTY()
 		USoundCue* BackgroundSoundFx;
+
+	UPROPERTY(Replicated)
+		TSubclassOf<AxWeaponBase> WeaponToBeSpawned;
+
+	UPROPERTY(Replicated)
+		AActor* WeaponPickupChest;
+
+	UPROPERTY()
+		AxWeaponBase* MyWeapon;
 
 	UFUNCTION()
 		void FindTopDownCamera();
@@ -513,32 +539,32 @@ private:
 		void SlideLogic();
 
 	UFUNCTION()
-	void AITraceAndAttack();
+		void AITraceAndAttack();
 
 	UFUNCTION()
-	void SetHasBallFalse();
+		void SetHasBallFalse();
 
 	UFUNCTION()
-	void AIDisableAttackMode();
+		void AIDisableAttackMode();
 
 	UFUNCTION()
-	bool AreFightingRelatedMontagesPlaying();
+		bool AreFightingRelatedMontagesPlaying();
 
 	UFUNCTION()
-	void BlockMontageOnAnimationBlendOut(UAnimMontage* animMontage, bool bInterrupted);
-	
+		void BlockMontageOnAnimationBlendOut(UAnimMontage* animMontage, bool bInterrupted);
+
 	UFUNCTION()
-	void BlockMontageOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted);
+		void BlockMontageOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted);
 
 	UFUNCTION()
 		void SlideMontageOnAnimationBlendOut(UAnimMontage* animMontage, bool bInterrupted);
-	
+
 	UFUNCTION()
 		void SlideMontageOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted);
-	
+
 	UFUNCTION()
 		void GettingHitFromSlideMontageOnAnimationBlendOut(UAnimMontage* animMontage, bool bInterrupted);
-	
+
 	UFUNCTION()
 		void GettingHitFromSlideMontageOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted);
 
