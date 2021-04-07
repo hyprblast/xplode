@@ -2,6 +2,8 @@
 
 
 #include "xWeaponBase.h"
+#include "Kismet/GameplayStatics.h"
+#include "Engine/EngineTypes.h"
 
 // Sets default values
 AxWeaponBase::AxWeaponBase()
@@ -18,11 +20,6 @@ AxWeaponBase::AxWeaponBase()
 
 }
 
-void AxWeaponBase::Fire()
-{
-
-}
-
 // Called when the game starts or when spawned
 void AxWeaponBase::BeginPlay()
 {
@@ -35,5 +32,10 @@ void AxWeaponBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+}
+
+void AxWeaponBase::Arm()
+{
+	UGameplayStatics::PlaySoundAtLocation(GetWorld(), ArmSoundFx, GetActorLocation());
 }
 

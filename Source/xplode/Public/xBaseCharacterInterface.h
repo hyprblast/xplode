@@ -46,13 +46,22 @@ public:
 		bool GetPlayerIsSliding();
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerIsCombatMode();
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerIsKO();
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerHasPistol();
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		uint8 AIBlock();
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		uint8 SetWeaponToSpawn(AActor* Sender, TSubclassOf<AxWeaponBase> WeaponToSpawn);
+		uint8 Fire();
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		uint8 SetWeaponToSpawn(AxWeaponPickupBase* Sender, TSubclassOf<AxWeaponBase> WeaponToSpawn);
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SetPlayerIsThrowing(bool bPlayerIsThrowing);
@@ -70,10 +79,16 @@ public:
 		int32 SetPlayerIsGettingHit(bool bPlayerIsGettingHit);
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		uint8 SetShotBoneName(FName BoneName);
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 PushPlayer(FVector Force, bool bXOverride, bool bZOverride);
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerIsGettingHit();
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerHasWeapon();
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		FGuid GetPlayerHittingMe();

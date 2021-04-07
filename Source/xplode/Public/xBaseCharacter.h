@@ -84,6 +84,9 @@ public:
 		bool bIsFighting;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
+		bool bHaveWeapon;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
 		bool bIsSliding;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Bools", Replicated)
@@ -107,8 +110,8 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FX")
 		UParticleSystem* BloodParticles;
 
-	/*UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FX")
-		UParticleSystem* FightTrailParticle;*/
+	UPROPERTY(Replicated)
+		bool bIsCombatMode;
 
 	UPROPERTY()
 		UAudioComponent* ThrowPowerAudioComponent;
@@ -147,6 +150,10 @@ public:
 	virtual bool GetPlayerIsPickingUpBall_Implementation() override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerHasWeapon();
+	virtual bool GetPlayerHasWeapon_Implementation() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerIsBlocking();
 	virtual bool GetPlayerIsBlocking_Implementation() override;
 
@@ -157,6 +164,14 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerIsSliding();
 	virtual bool GetPlayerIsSliding_Implementation() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerIsCombatMode();
+	virtual bool GetPlayerIsCombatMode_Implementation() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		bool GetPlayerHasPistol();
+	virtual bool GetPlayerHasPistol_Implementation() override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerIsAutoFighting();
@@ -175,6 +190,10 @@ public:
 	virtual uint8 SetPlayerHasBall_Implementation(bool PlayerHasBall) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		uint8 SetShotBoneName(FName BoneName);
+	virtual uint8 SetShotBoneName_Implementation(FName BoneName) override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		bool GetPlayerIsKO();
 	virtual bool GetPlayerIsKO_Implementation() override;
 
@@ -191,8 +210,8 @@ public:
 	virtual FGuid GetPlayerId_Implementation() override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
-		uint8 SetWeaponToSpawn(AActor* Sender, TSubclassOf<AxWeaponBase> WeapontToSpawn);
-	virtual uint8 SetWeaponToSpawn_Implementation(AActor* Sender, TSubclassOf<AxWeaponBase> WeaponToSpawn) override;
+		uint8 SetWeaponToSpawn(AxWeaponPickupBase* Sender, TSubclassOf<AxWeaponBase> WeapontToSpawn);
+	virtual uint8 SetWeaponToSpawn_Implementation(AxWeaponPickupBase* Sender, TSubclassOf<AxWeaponBase> WeaponToSpawn) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SetPlayerIsThrowing(bool bPlayerIsThrowing);
@@ -209,6 +228,10 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		uint8 AIBlock();
 	virtual uint8 AIBlock_Implementation() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+		uint8 Fire();
+	virtual uint8 Fire_Implementation() override;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 		int32 SetPlayerIsFighting(bool bPlayerIsFighting);
@@ -451,11 +474,10 @@ protected:
 		UAnimMontage* GettingHitFromSlideMontage;
 
 
-
-
-
-
 private:
+
+	UPROPERTY()
+		float HitBlendWeight;
 
 	UPROPERTY()
 		FVector DefaultSpringArmVector = FVector(0, 33.0f, 76.0f);
@@ -471,6 +493,12 @@ private:
 
 	UPROPERTY()
 		float TargetSpringArmLength;
+
+	UPROPERTY()
+		float MinSpringArmLength = 350.f;
+
+	UPROPERTY()
+		float MinSpringArmPitch = -10.f;
 
 	UPROPERTY()
 		bool bIsChangingPitch;
@@ -503,10 +531,17 @@ private:
 		TSubclassOf<AxWeaponBase> WeaponToBeSpawned;
 
 	UPROPERTY(Replicated)
-		AActor* WeaponPickupChest;
+		AxWeaponPickupBase* WeaponPickupCrate;
+
+
+	UPROPERTY()
+		FName ShotBoneName;
 
 	UPROPERTY()
 		AxWeaponBase* MyWeapon;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerHasWeapon(bool bHasWeapon);
 
 	UFUNCTION()
 		void FindTopDownCamera();
@@ -591,6 +626,27 @@ private:
 
 	UFUNCTION()
 		void PickupBallMontageOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted);
+
+	/*UFUNCTION()
+		void FireMontageOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted);*/
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerFire();
+
+	UFUNCTION()
+		void FireAction();
+
+	UFUNCTION()
+		void SetCharacterMode(bool bIsCombat);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerSetCombatMode(bool bIsCombat);
+
+	UFUNCTION()
+		void CombatMode(bool bIsCombat);
+
+	UFUNCTION()
+		void DoFire();
 
 
 };

@@ -9,6 +9,10 @@
 #include "Components/SceneComponent.h"
 #include "GameFramework/DamageType.h"
 #include "Camera/CameraShake.h"
+#include "Animation/AnimMontage.h"
+#include "Sound/SoundCue.h"
+#include "Particles/ParticleSystem.h"
+#include "xProjectileBase.h"
 #include "xWeaponBase.generated.h"
 
 UCLASS()
@@ -20,11 +24,17 @@ public:
 	// Sets default values for this actor's properties
 	AxWeaponBase();
 
+	// Called every frame
+	virtual void Tick(float DeltaTime) override;
+
+	UFUNCTION()
+	void Arm();
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Default")
 		FName Name;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Default")
-		bool bIsAutomatic;
+		bool bIsPistol;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Default")
 		FVector ShellEjectPosition;
@@ -53,16 +63,22 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Default")
 		TSubclassOf<UMatineeCameraShake> FireCamShake;
 
-	UFUNCTION()
-	void Fire();
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Default")
+		TSubclassOf<AxProjectileBase> Projectile;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
+		UAnimMontage* FireMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
+		UParticleSystem* MuzzleParticle;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
+		USoundCue* ArmSoundFx;
 
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
+	
 
 };

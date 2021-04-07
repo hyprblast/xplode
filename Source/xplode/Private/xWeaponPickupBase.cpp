@@ -83,7 +83,21 @@ void AxWeaponPickupBase::OpenMontageOnAnimationEnd(UAnimMontage* animMontage, bo
 	GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("End")); 
 	WeaponPickupComp->SetHiddenInGame(false);
 	LightComp->SetHiddenInGame(false);
-	UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), LootAuraParticle, GetActorLocation(), FRotator(0, 0, 0));
+	SpawnedAuraParticle = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), LootAuraParticle, GetActorLocation(), FRotator(0, 0, 0));
+}
+
+
+void AxWeaponPickupBase::OnWeaponPickedUp()
+{
+	WeaponPickupComp->SetHiddenInGame(true);
+	UGameplayStatics::PlaySoundAtLocation(GetWorld(), PickupSoundFx, GetActorLocation());
+	SpawnedPickupParticle = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), PickupParticle, GetActorLocation(), FRotator(0, 0, 0));
+	SpawnedAuraParticle->DestroyComponent();
+
+	if (HasAuthority())
+	{
+		SetLifeSpan(.3f);
+	}
 }
 
 void AxWeaponPickupBase::CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, class AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)

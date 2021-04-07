@@ -13,6 +13,8 @@
 #include "Components/SceneComponent.h"
 #include "Components/RectLightComponent.h"
 #include "xWeaponBase.h"
+#include "Sound/SoundCue.h"
+#include "Particles/ParticleSystemComponent.h"
 #include "xWeaponPickupBase.generated.h"
 
 UCLASS()
@@ -42,20 +44,29 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Default")
 		TSubclassOf<AxWeaponBase> WeaponBase;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Defailt")
+		bool bIsOpen;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
 		UAnimMontage* OpenCrateMontage;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
 		UParticleSystem* LootAuraParticle;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
+		UParticleSystem* PickupParticle;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FX")
+		USoundCue* PickupSoundFx;
+
 	UPROPERTY(Replicated)
 		bool bIsPickedUp;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-		bool bIsOpen;
-
 	UPROPERTY(Replicated)
 		bool bTriggerOpen;
+
+	UFUNCTION()
+	void OnWeaponPickedUp();
 
 	UFUNCTION()
 		void CallOnOverlap(class UPrimitiveComponent* OverlappedComponent, class AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
@@ -70,12 +81,17 @@ protected:
 	virtual void BeginPlay() override;
 
 
-
 private:
 	UFUNCTION()
 	void Open();
 	
 	UFUNCTION()
 	void OpenMontageOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted);
+
+	UPROPERTY()
+	UParticleSystemComponent* SpawnedPickupParticle;
+
+	UPROPERTY()
+		UParticleSystemComponent* SpawnedAuraParticle;
 
 };

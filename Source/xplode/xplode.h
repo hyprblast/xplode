@@ -4,13 +4,14 @@
 
 #include "CoreMinimal.h"
 
-#define XBALLOBJECT_CHANNEL				   ECC_GameTraceChannel1
+#define XBALLOBJECT_CHANNEL					ECC_GameTraceChannel1
 //#define XBALTRACE_CHANNEL				   ECC_GameTraceChannel2
 #define XGOALOBJECT_CHANNEL				   ECC_GameTraceChannel2
 #define XGOALPOSTOBJECT_CHANNEL			   ECC_GameTraceChannel3
 #define XPUNCHOBJECT_CHANNEL			   ECC_GameTraceChannel4
 #define XSKEKETALMESHOBJECT_CHANNEL        ECC_GameTraceChannel5
 #define XWEAPONPICKUPOBJECT_CHANNEL            ECC_GameTraceChannel6
+#define XPROJECTILEOBJECT_CHANNEL            ECC_GameTraceChannel7
 #define HEAD							   SurfaceType1
 #define TORSO							   SurfaceType2
 #define ARMS							   SurfaceType3

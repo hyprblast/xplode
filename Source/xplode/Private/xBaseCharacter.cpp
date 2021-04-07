@@ -34,6 +34,9 @@
 #include "Animation/AnimMontage.h"
 #include "Math/UnrealMathUtility.h"
 #include <Math/TransformNonVectorized.h>
+#include "xWeaponPickupBase.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "PistolShootDamageType.h"
 //#include "PhysicsEngine/PhysicsHandleComponent.h"
 
 
@@ -44,20 +47,13 @@ AxBaseCharacter::AxBaseCharacter()
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
-	bUseControllerRotationYaw = false;
-	bUseControllerRotationPitch = false;
-	bUseControllerRotationRoll = false;
-
-
 	SpringArmComp = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArmComp"));
 	SpringArmComp->SetupAttachment(RootComponent);
-	SpringArmComp->bUsePawnControlRotation = true;
+
 	SpringArmComp->bEnableCameraLag = true;
 	SpringArmComp->bEnableCameraRotationLag = true;
 	SpringArmComp->SetRelativeLocation(DefaultSpringArmVector);
-	SpringArmComp->bInheritPitch = false;
-	SpringArmComp->bInheritYaw = true;
-	SpringArmComp->bInheritRoll = true;
+
 	SpringArmComp->SetRelativeRotation(FRotator(DefaultSpringArmPitch, 0, 0));
 	SpringArmComp->TargetArmLength = DefaultSpringArmLength;
 	SpringArmComp->bDoCollisionTest = false;
@@ -65,7 +61,7 @@ AxBaseCharacter::AxBaseCharacter()
 	TargetSpringArmLength = DefaultSpringArmLength;
 
 	CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraComp"));
-	CameraComp->bUsePawnControlRotation = false;
+
 	CameraComp->SetupAttachment(SpringArmComp);
 
 
@@ -108,9 +104,6 @@ AxBaseCharacter::AxBaseCharacter()
 	UCharacterMovementComponent* const MovementComponent = GetCharacterMovement();
 
 	MovementComponent->SetIsReplicated(true);
-	MovementComponent->bUseControllerDesiredRotation = true;
-	/*MovementComponent->RotationRate = FRotator(0.0f, 180.0f, 0.0f);*/
-	MovementComponent->bOrientRotationToMovement = true;
 	MovementComponent->MaxWalkSpeed = 1000.f;
 	MovementComponent->SetWalkableFloorAngle(0);
 
@@ -175,6 +168,8 @@ AxBaseCharacter::AxBaseCharacter()
 
 
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
+
+	SetCharacterMode(false);
 
 
 	/*static ConstructorHelpers::FObjectFinder<UBlueprint> GameCameraBP(TEXT("Blueprint'/Game/_Main/Actors/Blueprints/BP_GameCamera.BP_GameCamera'"));
@@ -266,6 +261,11 @@ bool AxBaseCharacter::GetPlayerIsPickingUpBall_Implementation()
 	return bIsPickingUpBall;
 }
 
+bool AxBaseCharacter::GetPlayerHasWeapon_Implementation()
+{
+	return bHaveWeapon;
+}
+
 bool AxBaseCharacter::GetPlayerIsBlocking_Implementation()
 {
 	return bIsBlocking;
@@ -279,6 +279,16 @@ bool AxBaseCharacter::GetPlayerIsFighting_Implementation()
 bool AxBaseCharacter::GetPlayerIsSliding_Implementation()
 {
 	return bIsSliding;
+}
+
+bool AxBaseCharacter::GetPlayerIsCombatMode_Implementation()
+{
+	return bIsCombatMode;
+}
+
+bool AxBaseCharacter::GetPlayerHasPistol_Implementation()
+{
+	return IsValid(MyWeapon) && MyWeapon->bIsPistol;
 }
 
 bool AxBaseCharacter::GetPlayerIsAutoFighting_Implementation()
@@ -304,6 +314,12 @@ uint8 AxBaseCharacter::SetPlayerHasBall_Implementation(bool PlayerHasBall)
 	return 1;
 }
 
+uint8 AxBaseCharacter::SetShotBoneName_Implementation(FName BoneName)
+{
+	ShotBoneName = BoneName;
+	return 1;
+}
+
 bool AxBaseCharacter::GetPlayerIsKO_Implementation()
 {
 	return bIsKO;
@@ -324,10 +340,10 @@ FGuid AxBaseCharacter::GetPlayerId_Implementation()
 	return PlayerId;
 }
 
-uint8 AxBaseCharacter::SetWeaponToSpawn_Implementation(AActor* Sender, TSubclassOf<AxWeaponBase> WeaponToSpawn)
+uint8 AxBaseCharacter::SetWeaponToSpawn_Implementation(AxWeaponPickupBase* Sender, TSubclassOf<AxWeaponBase> WeaponToSpawn)
 {
 	WeaponToBeSpawned = WeaponToSpawn;
-	WeaponPickupChest = Sender;
+	WeaponPickupCrate = Sender;
 	return 1;
 }
 
@@ -354,6 +370,51 @@ uint8 AxBaseCharacter::AIBlock_Implementation()
 {
 	Block();
 	return 1;
+}
+
+uint8 AxBaseCharacter::Fire_Implementation()
+{
+
+	if (IsValid(MyWeapon) && bIsCombatMode && !bIsKO && !bIsDead)
+	{
+		// Client will have authority over this projectile
+		GetMesh()->GetAnimInstance()->Montage_Play(MyWeapon->FireMontage);
+		/*FOnMontageEnded CompleteDelegate;*/
+		/*CompleteDelegate.BindUObject(this, &AxBaseCharacter::FireMontageOnAnimationEnd);*/
+		/*GetMesh()->GetAnimInstance()->Montage_SetEndDelegate(CompleteDelegate, MyWeapon->FireMontage);*/
+		UGameplayStatics::SpawnEmitterAttached(MyWeapon->MuzzleParticle, MyWeapon->WeaponSkeletalMesh, TEXT("MuzzleFlashSocket"), FVector(0, 0, 0), FRotator(0, 0, 0), EAttachLocation::SnapToTargetIncludingScale);
+
+		DoFire();
+
+		if (GetNetMode() == ENetMode::NM_ListenServer)
+		{
+			return 1; // when listen server this piece of code is already running on the server 
+		}
+
+		ServerFire();
+
+	}
+	return 1;
+}
+
+void AxBaseCharacter::DoFire()
+{
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = this;
+	SpawnParams.Instigator = this;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	FTransform MuzzleTransform = MyWeapon->WeaponSkeletalMesh->GetSocketTransform(TEXT("MuzzleFlashSocket"));
+
+	AxProjectileBase* Projectile = GetWorld()->SpawnActor<AxProjectileBase>(MyWeapon->Projectile, MuzzleTransform, SpawnParams);
+	if (IsValid(Projectile))
+	{
+		Projectile->SphereCollisionComp->MoveIgnoreActors.Add(this);
+		Projectile->SphereCollisionComp->MoveIgnoreActors.Add(MyWeapon);
+		GetMesh()->MoveIgnoreActors.Add(Projectile);
+		Projectile->Shoot(GetActorForwardVector() * MyWeapon->FireRate);
+	}
+	
 }
 
 int32 AxBaseCharacter::SetPlayerIsFighting_Implementation(bool bPlayerIsFighting)
@@ -492,6 +553,7 @@ void AxBaseCharacter::BeginPlay()
 
 void AxBaseCharacter::HandleTakeAnyDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser)
 {
+	/*GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, TEXT("HandleTakeAnyDamage"));*/
 
 	if (IsValid(DamageType) && DamageType->GetClass()->ImplementsInterface(UxBaseDamageTypeInterface::StaticClass()))
 	{
@@ -516,6 +578,22 @@ void AxBaseCharacter::HandleTakeAnyDamage(AActor* DamagedActor, float Damage, co
 			{
 				ServerThrowBall(-CameraComp->GetForwardVector(), true);
 			}
+		}
+		else if (DamageTypeName == TEXT("Pistol Shot"))
+		{
+			//Apply force to hit bone
+			// change bone name if hit in pelvis or else character will do strange poses
+		/*	ShotBoneName = ShotBoneName != "pelvis" && ShotBoneName != "None" ? ShotBoneName : "spine_01";
+			GetMesh()->SetAllBodiesBelowSimulatePhysics(ShotBoneName, true);
+			GetMesh()->SetAllBodiesBelowPhysicsBlendWeight(ShotBoneName, .8f);
+			GetMesh()->AddImpulse(GetActorForwardVector(), ShotBoneName, true);
+			GetMesh()->SetAllBodiesPhysicsBlendWeight(0.f);
+			GetMesh()->SetAllBodiesSimulatePhysics(false);
+
+			FTimerHandle TimerHandle;
+
+			GetWorldTimerManager().SetTimer(
+				TimerHandle, this, &AxBaseCharacter::RestorePhysicsAfterGettingShot, .8f, false);*/
 		}
 
 		Health -= Damage;
@@ -650,6 +728,16 @@ void AxBaseCharacter::MoveRight(float Value)
 }
 
 
+void AxBaseCharacter::ServerHasWeapon_Implementation(bool bHasWeapon)
+{
+	bHaveWeapon = bHasWeapon;
+}
+
+bool AxBaseCharacter::ServerHasWeapon_Validate(bool bHasWeapon)
+{
+	return true;
+}
+
 void AxBaseCharacter::FindTopDownCamera()
 {
 
@@ -774,21 +862,17 @@ void AxBaseCharacter::OnBallExploding()
 
 void AxBaseCharacter::Turn(float Value)
 {
-
-	if (CameraVieww == UxCameraView::FirstPerson)
-	{
-		AxBaseCharacter::AddControllerYawInput(Value);
-		InputAxisYawValue = Value;
-	}
+	AxBaseCharacter::AddControllerYawInput(Value);
+	InputAxisYawValue = Value;
 }
 
 void AxBaseCharacter::ChangeCameraPitch(float Value)
 {
 	TargetSpringArmPitch += Value;
-	TargetSpringArmPitch = FMath::Clamp(TargetSpringArmPitch, DefaultSpringArmPitch, -10.f);
+	TargetSpringArmPitch = FMath::Clamp(TargetSpringArmPitch, DefaultSpringArmPitch, MinSpringArmPitch);
 
 	TargetSpringArmLength -= 100.f * Value;
-	TargetSpringArmLength = FMath::Clamp(TargetSpringArmLength, 300.f, DefaultSpringArmLength);
+	TargetSpringArmLength = FMath::Clamp(TargetSpringArmLength, MinSpringArmLength, DefaultSpringArmLength);
 }
 
 void AxBaseCharacter::PlayThrowBallAnim()
@@ -825,14 +909,24 @@ void AxBaseCharacter::SpawnWweapon()
 {
 	if (WeaponToBeSpawned != NULL)
 	{
+		// pickup
 		ServerSpawnWweapon();
 	}
+	else
+	{
+		if (IsValid(MyWeapon))
+		{
+			// Toggle between combat / non combat mode
+			SetCharacterMode(!bIsCombatMode);
+		}
+	}
+
 }
 
 void AxBaseCharacter::ServerSpawnWweapon_Implementation()
 {
+	bHaveWeapon = true;
 	MulticastSpawnWweapon();
-	WeaponPickupChest->Destroy();
 }
 
 bool AxBaseCharacter::ServerSpawnWweapon_Validate()
@@ -856,6 +950,8 @@ void AxBaseCharacter::MulticastSpawnWweapon_Implementation()
 	MyWeapon->AttachToComponent(GetMesh(), TransformRules, TEXT("weaponSocket"));
 
 	WeaponToBeSpawned = NULL;
+
+	WeaponPickupCrate->OnWeaponPickedUp();
 }
 
 void AxBaseCharacter::IncreaseThrowPower()
@@ -1046,6 +1142,97 @@ void AxBaseCharacter::PickupBallMontageOnAnimationEnd(UAnimMontage* animMontage,
 	}
 }
 
+void AxBaseCharacter::ServerFire_Implementation()
+{
+	DoFire();
+}
+
+bool AxBaseCharacter::ServerFire_Validate()
+{
+	return true;
+}
+
+//void AxBaseCharacter::FireMontageOnAnimationEnd(UAnimMontage* animMontage, bool bInterrupted)
+//{
+//	//ServerHasWeapon(false);
+//}
+
+void AxBaseCharacter::FireAction()
+{
+	Fire();
+}
+
+void AxBaseCharacter::SetCharacterMode(bool bIsCombat)
+{
+	ServerSetCombatMode(bIsCombat);
+	CombatMode(bIsCombat);
+}
+
+void AxBaseCharacter::ServerSetCombatMode_Implementation(bool bIsCombat)
+{
+	bIsCombatMode = bIsCombat;
+	CombatMode(bIsCombat);
+}
+
+bool AxBaseCharacter::ServerSetCombatMode_Validate(bool bIsCombat)
+{
+	return true;
+}
+
+void AxBaseCharacter::CombatMode(bool bIsCombat)
+{
+	UCharacterMovementComponent* const MovementComponent = GetCharacterMovement();
+
+	
+
+	CameraComp->bUsePawnControlRotation = false;
+	SpringArmComp->bInheritPitch = false;
+	bUseControllerRotationPitch = false;
+	bUseControllerRotationRoll = false;
+
+	if (bIsCombat)
+	{
+		if (IsLocallyControlled())
+		{
+			TargetSpringArmLength = MinSpringArmLength;
+			TargetSpringArmPitch = MinSpringArmPitch;
+			MyWeapon->Arm();
+		}
+
+		bUseControllerRotationYaw = true;
+		SpringArmComp->bUsePawnControlRotation = false;
+	/*	SpringArmComp->bInheritYaw = false;
+		SpringArmComp->bInheritRoll = false;*/
+		MovementComponent->bUseControllerDesiredRotation = false;
+		MovementComponent->bOrientRotationToMovement = false;
+		/*SpringArmComp->SetUsingAbsoluteRotation(true);*/
+	/*	SpringArmComp->SetWorldRotation(FRotator(0, 0, -90));*/
+		/*SpringArmComp->SetUsingAbsoluteLocation(true);*/
+		//SpringArmComp->SetWorldRotation(FRotator(190, 190, 0)); 
+
+	}
+	else
+	{
+		if (IsLocallyControlled())
+		{
+			TargetSpringArmPitch = DefaultSpringArmPitch;
+			TargetSpringArmLength = DefaultSpringArmLength;
+		}
+		
+		bUseControllerRotationYaw = false;
+		SpringArmComp->bUsePawnControlRotation = true;
+		SpringArmComp->bInheritYaw = true;
+		SpringArmComp->bInheritRoll = true;
+		/*SpringArmComp->SetUsingAbsoluteRotation(false);*/
+		/*SpringArmComp->SetUsingAbsoluteLocation(false);*/
+
+		MovementComponent->bUseControllerDesiredRotation = true;
+		//MovementComponent->RotationRate = FRotator(0.0f, 260.0f, 0.0f);
+		MovementComponent->bOrientRotationToMovement = true;
+
+	}
+}
+
 void AxBaseCharacter::BlockLogic()
 {
 	bIsBlocking = true;
@@ -1232,7 +1419,7 @@ void AxBaseCharacter::SlideLogic()
 		FVector FowardVector = GetActorForwardVector();
 		PushPlayer(FVector(FowardVector.X * 700.f, FowardVector.Y * 700.f, 300.f), true, false);
 	}
-	
+
 }
 
 void AxBaseCharacter::AITraceAndAttack()
@@ -1580,7 +1767,7 @@ void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
 	/*PlayerInputComponent->BindAxis("LookUp", this, &AxBaseCharacter::AddControllerPitchInput);*/
-	PlayerInputComponent->BindAxis("LookUp", this, &AxBaseCharacter::ChangeCameraPitch);
+	/*PlayerInputComponent->BindAxis("LookUp", this, &AxBaseCharacter::ChangeCameraPitch);*/
 	PlayerInputComponent->BindAxis("Turn", this, &AxBaseCharacter::Turn);
 
 	PlayerInputComponent->BindAxis("MoveFoward", this, &AxBaseCharacter::MoveFoward);
@@ -1588,8 +1775,10 @@ void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AxBaseCharacter::Jump);
 
-	PlayerInputComponent->BindAction("ThrowBall", IE_Pressed, this, &AxBaseCharacter::IncreaseThrowPower);
-	PlayerInputComponent->BindAction("ThrowBall", IE_Released, this, &AxBaseCharacter::PlayThrowBallAnim);
+	PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &AxBaseCharacter::FireAction);
+
+	/*PlayerInputComponent->BindAction("ThrowBall", IE_Pressed, this, &AxBaseCharacter::IncreaseThrowPower);
+	PlayerInputComponent->BindAction("ThrowBall", IE_Released, this, &AxBaseCharacter::PlayThrowBallAnim);*/
 
 	PlayerInputComponent->BindAction("Fight", IE_Pressed, this, &AxBaseCharacter::Fight);
 
@@ -1600,7 +1789,7 @@ void AxBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 
 	PlayerInputComponent->BindAction("Pickup", IE_Pressed, this, &AxBaseCharacter::SpawnWweapon);
 
-	PlayerInputComponent->BindAction("CamToggle", IE_Pressed, this, &AxBaseCharacter::CamToggle);
+	/*PlayerInputComponent->BindAction("CamToggle", IE_Pressed, this, &AxBaseCharacter::CamToggle);*/
 }
 
 
@@ -1634,6 +1823,7 @@ void AxBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(AxBaseCharacter, bIsThrowing);
 	DOREPLIFETIME(AxBaseCharacter, bIsBlocking);
 	DOREPLIFETIME(AxBaseCharacter, bIsFighting);
+	DOREPLIFETIME(AxBaseCharacter, bHaveWeapon);
 	DOREPLIFETIME(AxBaseCharacter, bIsTakingHit);
 	DOREPLIFETIME(AxBaseCharacter, ThrowPower);
 	DOREPLIFETIME(AxBaseCharacter, MaxThrowPower);
@@ -1649,7 +1839,9 @@ void AxBaseCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(AxBaseCharacter, bIsSliding);
 	DOREPLIFETIME(AxBaseCharacter, bIsPickingUpBall);
 	DOREPLIFETIME(AxBaseCharacter, WeaponToBeSpawned);
-
+	DOREPLIFETIME(AxBaseCharacter, WeaponPickupCrate);
+	/*DOREPLIFETIME(AxBaseCharacter, ShotBoneName);*/
+	DOREPLIFETIME(AxBaseCharacter, bIsCombatMode);
 
 }
 
